@@ -4,7 +4,9 @@ import 'package:just_audio/just_audio.dart';
 class AudioService {
   static final AudioService _instance = AudioService._internal();
   factory AudioService() => _instance;
-  AudioService._internal();
+  AudioService._internal() {
+    _setupListeners();
+  }
 
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -23,10 +25,6 @@ class AudioService {
   bool get isPlaying => _audioPlayer.playing;
   Duration get position => _audioPlayer.position;
   Duration get duration => _audioPlayer.duration ?? Duration.zero;
-
-  AudioService() {
-    _setupListeners();
-  }
 
   void _setupListeners() {
     _audioPlayer.playingStream.listen((isPlaying) {

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../models/speaker_model.dart';
 import '../services/supabase_service.dart';
@@ -248,8 +249,8 @@ class SpeakerProvider with ChangeNotifier {
       normB += b[i] * b[i];
     }
 
-    normA = normA > 0 ? normA.sqrt() : 1;
-    normB = normB > 0 ? normB.sqrt() : 1;
+    normA = normA > 0 ? math.sqrt(normA) : 1;
+    normB = normB > 0 ? math.sqrt(normB) : 1;
 
     return dotProduct / (normA * normB);
   }
@@ -262,7 +263,7 @@ class SpeakerProvider with ChangeNotifier {
     try {
       final speaker = _speakers.firstWhere(
         (s) => s.id == speakerId && s.embeddings != null,
-        orElse: () => const SpeakerModel(
+        orElse: () => SpeakerModel(
           id: '',
           sampleCount: 0,
           createdAt: DateTime.fromMillisecondsSinceEpoch(0),

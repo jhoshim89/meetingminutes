@@ -223,7 +223,7 @@ class StorageService {
   /// Check if storage bucket exists and is accessible
   Future<bool> healthCheck() async {
     try {
-      await _client.storage.from(recordingsBucket).list(path: '', limit: 1);
+      await _client.storage.from(recordingsBucket).list(path: '');
       return true;
     } catch (e) {
       return false;

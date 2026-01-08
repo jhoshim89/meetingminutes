@@ -26,18 +26,16 @@ class SupabaseService {
     String? status,
   }) async {
     try {
-      var query = client
-          .from('meetings')
-          .select()
-          .eq('user_id', userId!)
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      var query = client.from('meetings').select().eq('user_id', userId!);
 
       if (status != null) {
         query = query.eq('status', status);
       }
 
-      final response = await query;
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
+
       return (response as List)
           .map((json) => MeetingModel.fromJson(json))
           .toList();
@@ -158,17 +156,14 @@ class SupabaseService {
     bool? isRegistered,
   }) async {
     try {
-      var query = client
-          .from('speakers')
-          .select()
-          .eq('user_id', userId!)
-          .order('created_at', ascending: false);
+      var query = client.from('speakers').select().eq('user_id', userId!);
 
       if (isRegistered != null) {
         query = query.eq('is_registered', isRegistered);
       }
 
-      final response = await query;
+      final response = await query.order('created_at', ascending: false);
+
       return (response as List)
           .map((json) => SpeakerModel.fromJson(json))
           .toList();

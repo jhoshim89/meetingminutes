@@ -140,7 +140,7 @@ class _SpeakerInputFormState extends State<SpeakerInputForm> {
           onChanged: (value) {
             setState(() {});
           },
-          onSubmitted: (value) {
+          onFieldSubmitted: (value) {
             if (!widget.isLoading) {
               _handleSave();
             }

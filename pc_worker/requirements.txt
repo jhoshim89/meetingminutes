@@ -1,3 +1,8 @@
+# PyTorch with CUDA 12.1 (GPU acceleration)
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1
+torchaudio==2.5.1
+
 python-dotenv==1.0.0
 supabase==2.4.0
 supabase-py==2.4.0
@@ -6,8 +11,6 @@ pyannote.audio==3.0.1
 librosa==0.10.0
 numpy==1.24.3
 soundfile==0.12.1
-torch==2.0.0
-torchaudio==2.0.0
 pydantic==2.4.0
 python-multipart==0.0.6
 aiohttp==3.9.0
@@ -28,6 +31,10 @@ webrtcvad==2.0.10
 noisereduce==2.0.1
 huggingface-hub==0.19.4
 tensorboard==2.15.1
+
+# RAG and Embeddings
+sentence-transformers==2.2.2
+FlagEmbedding==1.2.10
 
 # Testing
 pytest==7.4.3

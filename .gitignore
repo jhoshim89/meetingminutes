@@ -40,11 +40,14 @@ pc_worker/logs/
 *.env
 pc_worker/.env
 
-# ===== Claude Code =====
-.claude/skills/
-.claude/settings.local.json
-
 # ===== Temporary files =====
 *.log
 *.tmp
 *.temp
+pc_worker/temp_audio/
+
+# ===== Claude Code =====
+.claude/
+
+# ===== Data & Samples =====
+data/

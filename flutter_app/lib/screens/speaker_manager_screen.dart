@@ -55,13 +55,13 @@ class _SpeakerManagerScreenState extends State<SpeakerManagerScreen> {
 
     showDialog(
       context: context,
-      builder: (dialogContext) => _buildRegistrationDialog(context, speaker),
+      builder: (dialogContext) => _buildRegistrationDialog(dialogContext, speaker),
       barrierDismissible: !_isRegistering,
     );
   }
 
   /// Build registration dialog
-  Widget _buildRegistrationDialog(BuildContext context, SpeakerModel speaker) {
+  Widget _buildRegistrationDialog(BuildContext dialogContext, SpeakerModel speaker) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SingleChildScrollView(

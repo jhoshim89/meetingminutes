@@ -274,7 +274,7 @@ class SupabaseClient:
 
         Args:
             meeting_id: Meeting identifier (for logging)
-            url: Audio file URL
+            url: Audio file URL or Storage path
             destination: Local file path to save to
 
         Returns:
@@ -286,8 +286,23 @@ class SupabaseClient:
         try:
             logger.info(f"Downloading audio for meeting {meeting_id}")
 
+            # If URL is a storage path (not http/https), generate signed URL
+            download_url = url
+            if not url.startswith('http'):
+                logger.info(f"Generating signed URL for storage path: {url}")
+                try:
+                    # Generate signed URL from Supabase Storage (1 hour expiry)
+                    signed_result = self.client.storage.from_('recordings').create_signed_url(url, 3600)
+                    download_url = signed_result.get('signedUrl') or signed_result.get('signedURL')
+                    if not download_url:
+                        raise AudioDownloadError(f"Failed to generate signed URL for: {url}")
+                    logger.info(f"Generated signed URL successfully")
+                except Exception as e:
+                    logger.error(f"Failed to generate signed URL: {e}")
+                    raise AudioDownloadError(f"Storage signed URL error: {e}")
+
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
+                async with session.get(download_url) as response:
                     if response.status != 200:
                         raise AudioDownloadError(
                             f"HTTP {response.status} when downloading audio"
