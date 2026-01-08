@@ -1,0 +1,50 @@
+# ===== OS =====
+.DS_Store
+Thumbs.db
+nul
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# ===== Flutter =====
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+flutter_app/build/
+flutter_app/.metadata
+flutter_app/pubspec.lock
+*.lock
+
+# ===== Python =====
+pc_worker/__pycache__/
+pc_worker/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+pc_worker/venv/
+pc_worker/.venv/
+pc_worker/*.egg-info/
+pc_worker/dist/
+pc_worker/build/
+pc_worker/logs/
+
+# ===== Environment & Secrets =====
+.env
+.env.local
+.env.*.local
+*.env
+pc_worker/.env
+
+# ===== Claude Code =====
+.claude/skills/
+.claude/settings.local.json
+
+# ===== Temporary files =====
+*.log
+*.tmp
+*.temp

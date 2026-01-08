@@ -1,0 +1,6 @@
+{
+  "language": "korean",
+  "enabledPlugins": {
+    "supabase@claude-plugins-official": true
+  }
+}

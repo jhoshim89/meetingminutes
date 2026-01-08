@@ -1,0 +1,116 @@
+# Pretrained Models for Meeting Minutes AI Pipeline
+# Last Updated: 2026-01-08
+
+## WhisperX Models
+# Location: Automatically downloaded to MODEL_CACHE_DIR
+# Model: large-v2 (Korean optimized)
+# Size: ~3GB
+# Source: openai/whisper-large-v2
+# Usage: Speech-to-Text transcription
+
+whisper_model_name=large-v2
+whisper_model_size=~3GB
+whisper_languages=multilingual (99+ languages including Korean)
+whisper_performance_gpu=~0.1-0.2x real-time
+whisper_performance_cpu=~0.5-1x real-time
+
+## Pyannote Audio Models
+# Location: Automatically downloaded to MODEL_CACHE_DIR
+# Requires HuggingFace authentication token
+
+### Speaker Diarization Model
+diarization_model=pyannote/speaker-diarization-3.0
+diarization_size=~200MB
+diarization_purpose=Speaker segmentation and clustering
+diarization_accuracy=DER ~10-15% on standard benchmarks
+diarization_requires_auth=true
+
+### Speaker Embedding Model
+embedding_model=pyannote/embedding
+embedding_size=~100MB
+embedding_purpose=Voice embedding extraction (512-dim vectors)
+embedding_requires_auth=true
+
+### Voice Activity Detection (VAD) Model
+vad_model=pyannote/segmentation
+vad_size=~50MB
+vad_purpose=Voice activity detection
+vad_requires_auth=true
+
+## SpeechBrain Models (Alternative)
+# Location: Automatically downloaded when first used
+
+speechbrain_embedding=speechbrain/spkrec-ecapa-tdnn
+speechbrain_size=~100MB
+speechbrain_purpose=Alternative speaker embedding (ECAPA-TDNN)
+speechbrain_dimensions=192
+
+## Model Download Instructions
+
+### 1. Setup HuggingFace Token
+# Visit: https://huggingface.co/settings/tokens
+# Create a token with "read" permission
+# Accept terms for pyannote models:
+#   - https://huggingface.co/pyannote/speaker-diarization-3.0
+#   - https://huggingface.co/pyannote/embedding
+#   - https://huggingface.co/pyannote/segmentation
+
+# Add to .env file:
+HUGGINGFACE_TOKEN=your_token_here
+
+### 2. Model Cache Directory
+# Models are cached in: ./models/ (configurable via MODEL_CACHE_DIR)
+# Total disk space required: ~4-5GB
+
+### 3. GPU Requirements
+# Recommended: NVIDIA GPU with CUDA support
+# Minimum VRAM: 4GB (8GB+ recommended for large-v2)
+# CPU mode: Supported but 3-5x slower
+
+## Performance Benchmarks (10-minute audio)
+
+### GPU (NVIDIA RTX 3060, 12GB VRAM)
+- WhisperX Transcription: 60-90 seconds
+- Speaker Diarization: 30-45 seconds
+- Total Processing Time: 2-3 minutes
+- Memory Usage: 4-6GB VRAM
+
+### CPU (Intel i7-10700K, 8 cores)
+- WhisperX Transcription: 5-7 minutes
+- Speaker Diarization: 2-3 minutes
+- Total Processing Time: 8-10 minutes
+- Memory Usage: 8-12GB RAM
+
+## Model Accuracy Targets
+
+### STT (WhisperX)
+- Target WER (Word Error Rate): <10%
+- Korean language accuracy: 90%+
+- Confidence threshold: 0.8
+
+### Speaker Diarization (Pyannote)
+- Target DER (Diarization Error Rate): <20%
+- Speaker identification: 80%+
+- Missed speaker: <5%
+- False alarm: <5%
+- Speaker confusion: <10%
+
+## Troubleshooting
+
+### Model Download Failures
+1. Check internet connection
+2. Verify HuggingFace token is valid
+3. Ensure terms accepted for pyannote models
+4. Check disk space (need 5GB+ free)
+
+### Out of Memory (OOM) Errors
+1. Reduce batch_size in WhisperX config
+2. Use smaller model (medium or base)
+3. Process in smaller chunks
+4. Enable mixed precision (float16)
+
+### Slow Performance
+1. Verify GPU is being used (check logs)
+2. Update CUDA/PyTorch versions
+3. Reduce audio quality (16kHz is optimal)
+4. Enable model optimization flags
