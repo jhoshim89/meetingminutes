@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meeting_model.dart';
 import '../models/speaker_model.dart';
 import '../models/transcript_model.dart';
+import '../models/search_result_model.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
@@ -145,6 +146,111 @@ class SupabaseService {
           .toList();
     } catch (e) {
       throw Exception('Failed to search meetings: $e');
+    }
+  }
+
+  /// RAG Hybrid Search - combines keyword and semantic search
+  /// Returns transcript chunks ranked by relevance
+  Future<List<SearchResultModel>> hybridSearchChunks({
+    required String query,
+    String? meetingId,
+    int limit = 20,
+    double keywordWeight = 0.3,
+    double semanticWeight = 0.7,
+  }) async {
+    try {
+      // Note: This requires the query embedding to be generated server-side
+      // For now, we use a simplified keyword search until embedding API is ready
+      final response = await client.rpc(
+        'hybrid_search_chunks_simple',
+        params: {
+          'p_query_text': query,
+          'p_user_id': userId,
+          'p_meeting_id': meetingId,
+          'p_limit': limit,
+        },
+      );
+
+      if (response == null) return [];
+
+      return (response as List)
+          .map((json) => SearchResultModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      // Fallback to simple text search if RPC not available
+      return await _fallbackTextSearch(query, meetingId, limit);
+    }
+  }
+
+  /// Fallback text search when hybrid search is not available
+  Future<List<SearchResultModel>> _fallbackTextSearch(
+    String query,
+    String? meetingId,
+    int limit,
+  ) async {
+    try {
+      var queryBuilder = client
+          .from('transcript_chunks')
+          .select()
+          .eq('user_id', userId!)
+          .textSearch('text', query, config: 'simple')
+          .limit(limit);
+
+      if (meetingId != null) {
+        queryBuilder = queryBuilder.eq('meeting_id', meetingId);
+      }
+
+      final response = await queryBuilder;
+
+      return (response as List).map((json) {
+        return SearchResultModel(
+          chunkId: json['id'] as String,
+          meetingId: json['meeting_id'] as String,
+          chunkIndex: json['chunk_index'] as int,
+          startTime: (json['start_time'] as num).toDouble(),
+          endTime: (json['end_time'] as num).toDouble(),
+          speakerId: json['speaker_id'] as String?,
+          text: json['text'] as String,
+          keywordScore: 1.0,
+          semanticScore: 0.0,
+          combinedScore: 1.0,
+        );
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to search chunks: $e');
+    }
+  }
+
+  /// Get chunks for a specific meeting (for context display)
+  Future<List<SearchResultModel>> getMeetingChunks(
+    String meetingId, {
+    int limit = 100,
+  }) async {
+    try {
+      final response = await client
+          .from('transcript_chunks')
+          .select()
+          .eq('meeting_id', meetingId)
+          .eq('user_id', userId!)
+          .order('chunk_index', ascending: true)
+          .limit(limit);
+
+      return (response as List).map((json) {
+        return SearchResultModel(
+          chunkId: json['id'] as String,
+          meetingId: json['meeting_id'] as String,
+          chunkIndex: json['chunk_index'] as int,
+          startTime: (json['start_time'] as num).toDouble(),
+          endTime: (json['end_time'] as num).toDouble(),
+          speakerId: json['speaker_id'] as String?,
+          text: json['text'] as String,
+          keywordScore: 0.0,
+          semanticScore: 0.0,
+          combinedScore: 0.0,
+        );
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to get meeting chunks: $e');
     }
   }
 

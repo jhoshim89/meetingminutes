@@ -6,6 +6,7 @@ import 'screens/recorder_screen.dart';
 import 'screens/meeting_detail_screen.dart';
 import 'screens/speaker_manager_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/search_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/meeting_provider.dart';
 import 'providers/recorder_provider.dart';
@@ -152,6 +153,7 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    SearchScreen(),
     RecorderScreen(),
     SpeakerManagerScreen(),
     SettingsScreen(),
@@ -168,22 +170,27 @@ class _MainNavigatorState extends State<MainNavigator> {
             _currentIndex = index;
           });
         },
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Home',
+            label: '홈',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: '검색',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.mic),
-            label: 'Recorder',
+            label: '녹음',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Speakers',
+            label: '화자',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Settings',
+            label: '설정',
           ),
         ],
       ),

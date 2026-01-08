@@ -7,10 +7,12 @@ import '../models/transcript_model.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
   final String meetingId;
+  final double? initialSeekTime;  // Time to seek to when opening from search
 
   const MeetingDetailScreen({
     Key? key,
     required this.meetingId,
+    this.initialSeekTime,
   }) : super(key: key);
 
   @override

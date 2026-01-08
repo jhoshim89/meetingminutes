@@ -40,11 +40,12 @@
 
 ---
 
-### Phase 4: RAG 검색 (3-4주) ⏳ 대기 중
-- [ ] **텍스트 청킹 및 임베딩 (BGE-M3)** ⏳
-- [ ] **pgvector 하이브리드 검색 구현** ⏳
-- [ ] **LangChain 재순위화 통합** ⏳
-- [ ] **검색 정확도 검증 (85%+)** ⏳
+### Phase 4: RAG 검색 (3-4주) ✅ 완료
+- [x] **텍스트 청킹 및 임베딩 (BGE-M3)** ✅ (text_chunker.py, embedding_engine.py)
+- [x] **pgvector 하이브리드 검색 구현** ✅ (rag_search.py, migrations/002_*)
+- [x] **LangChain 재순위화 통합** ✅ (reranker.py)
+- [x] **모바일 검색 UI 구현** ✅ (search_screen.dart, search_provider.dart)
+- [ ] **검색 정확도 검증 (85%+)** ⏳ 실제 테스트 필요
 
 **Agent**: ai-engineer (Opus)
 **Sub-agents**: system-architect, performance-engineer
