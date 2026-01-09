@@ -152,6 +152,7 @@ class MainNavigator extends StatefulWidget {
 
 class _MainNavigatorState extends State<MainNavigator> {
   int _currentIndex = 0;
+  bool _isInitialized = false;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -162,7 +163,33 @@ class _MainNavigatorState extends State<MainNavigator> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initializeAuth();
+  }
+
+  Future<void> _initializeAuth() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Auto sign in anonymously if not authenticated
+    if (!authProvider.isAuthenticated) {
+      await authProvider.signInAnonymously();
+    }
+
+    setState(() {
+      _isInitialized = true;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
