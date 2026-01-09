@@ -212,12 +212,19 @@ class STTPipeline:
             )
             alignment_time = time.time() - alignment_start
 
-            # Stage 5: Extract speaker embeddings
-            speaker_embeddings = await self.diarization_engine.extract_speaker_embeddings(
-                preprocessed_path,
-                diarization,
-                meeting_id
-            )
+            # Stage 5: Extract speaker embeddings (optional - may fail if model not available)
+            speaker_embeddings = {}
+            try:
+                speaker_embeddings = await self.diarization_engine.extract_speaker_embeddings(
+                    preprocessed_path,
+                    diarization,
+                    meeting_id
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Speaker embedding extraction failed (optional feature): {e}. "
+                    f"Continuing without embeddings."
+                )
 
             # Stage 6: Create speaker objects
             speakers = self._create_speaker_objects(
