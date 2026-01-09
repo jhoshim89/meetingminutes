@@ -3,11 +3,15 @@ Speaker Diarization Module
 Handles speaker identification and segmentation using pyannote.audio
 """
 
+# Import config first to apply PyTorch 2.6+ compatibility patch
+from config import DIARIZATION_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR, HUGGINGFACE_TOKEN
+
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import torch
 import numpy as np
+
 from pyannote.audio import Pipeline
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from pyannote.core import Annotation, Segment
@@ -15,7 +19,6 @@ from pyannote.core import Annotation, Segment
 from models import TranscriptSegment, SpeakerEmbedding
 from exceptions import DiarizationError
 from logger import get_logger
-from config import DIARIZATION_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR, HUGGINGFACE_TOKEN
 
 logger = get_logger("speaker_diarization")
 

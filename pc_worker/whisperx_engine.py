@@ -3,18 +3,21 @@ WhisperX STT Engine Module
 Handles audio transcription using WhisperX with Korean language support
 """
 
+# Import config first to apply PyTorch 2.6+ compatibility patch
+from config import WHISPERX_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR
+
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import numpy as np
 import torch
 import whisperx
+import soundfile as sf
 from dataclasses import dataclass
 
 from models import TranscriptSegment
 from exceptions import TranscriptionError
 from logger import get_logger
-from config import WHISPERX_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR
 
 logger = get_logger("whisperx_engine")
 
@@ -138,12 +141,9 @@ class WhisperXEngine:
         )
 
         try:
-            # Load audio
+            # Load audio using our own loader to avoid ffmpeg PATH issues
             logger.debug(f"Loading audio from {audio_path}")
-            audio = await asyncio.to_thread(
-                whisperx.load_audio,
-                str(audio_path)
-            )
+            audio = await self._load_audio(audio_path)
 
             # Run transcription
             lang = language or self.config.language
@@ -195,6 +195,86 @@ class WhisperXEngine:
                 meeting_id=meeting_id
             )
             raise TranscriptionError(f"Failed to transcribe audio: {e}")
+
+    async def _load_audio(self, audio_path: Path) -> np.ndarray:
+        """
+        Load audio file in WhisperX-compatible format (float32, 16kHz, mono)
+
+        Uses soundfile for WAV files and ffmpeg via imageio_ffmpeg for other formats.
+        This avoids the PATH issues with WhisperX's internal load_audio function.
+
+        Args:
+            audio_path: Path to audio file
+
+        Returns:
+            Audio data as numpy array (float32, 16kHz)
+        """
+        import subprocess
+        import tempfile
+
+        audio_path = Path(audio_path)
+        SAMPLE_RATE = 16000  # WhisperX requires 16kHz
+
+        # For WAV files, try soundfile first
+        if audio_path.suffix.lower() == '.wav':
+            try:
+                audio_data, sr = await asyncio.to_thread(sf.read, str(audio_path))
+                audio_data = audio_data.astype(np.float32)
+
+                # Convert to mono if stereo
+                if len(audio_data.shape) > 1:
+                    audio_data = audio_data.mean(axis=1)
+
+                # Resample if needed
+                if sr != SAMPLE_RATE:
+                    import librosa
+                    audio_data = await asyncio.to_thread(
+                        librosa.resample,
+                        audio_data,
+                        orig_sr=sr,
+                        target_sr=SAMPLE_RATE
+                    )
+
+                return audio_data
+            except Exception as e:
+                logger.warning(f"soundfile failed to load WAV: {e}, trying ffmpeg")
+
+        # For other formats or if soundfile failed, use ffmpeg
+        try:
+            import imageio_ffmpeg
+            ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        except ImportError:
+            ffmpeg_path = "ffmpeg"
+
+        def _load_with_ffmpeg():
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                temp_wav = tmp.name
+
+            try:
+                cmd = [
+                    ffmpeg_path,
+                    '-i', str(audio_path),
+                    '-ar', str(SAMPLE_RATE),
+                    '-ac', '1',
+                    '-f', 'wav',
+                    '-y',
+                    temp_wav
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    raise Exception(f"ffmpeg error: {result.stderr}")
+
+                audio_data, _ = sf.read(temp_wav)
+                return audio_data.astype(np.float32)
+            finally:
+                import os
+                if os.path.exists(temp_wav):
+                    os.remove(temp_wav)
+
+        audio_data = await asyncio.to_thread(_load_with_ffmpeg)
+        logger.debug(f"Loaded audio: {len(audio_data)/SAMPLE_RATE:.2f}s @ {SAMPLE_RATE}Hz")
+        return audio_data
 
     def _transcribe_with_model(self, audio: np.ndarray, language: str) -> Dict:
         """

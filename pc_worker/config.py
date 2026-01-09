@@ -6,6 +6,22 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# PyTorch 2.6+ compatibility: Patch torch.load to use weights_only=False
+# This is needed because pyannote/whisperx models use pickle serialization
+# Must be done early before any torch imports
+try:
+    import torch
+    _original_torch_load = torch.load
+
+    def _patched_torch_load(*args, **kwargs):
+        """Patched torch.load with weights_only=False for model compatibility"""
+        kwargs['weights_only'] = False
+        return _original_torch_load(*args, **kwargs)
+
+    torch.load = _patched_torch_load
+except ImportError:
+    pass
+
 # Supabase Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")

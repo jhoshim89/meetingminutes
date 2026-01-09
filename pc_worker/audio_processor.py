@@ -100,7 +100,7 @@ class AudioProcessor:
 
     async def load_audio(self, file_path: Path) -> Tuple[np.ndarray, int]:
         """
-        Load audio file using librosa
+        Load audio file using librosa with pydub fallback for compressed formats
 
         Args:
             file_path: Path to audio file
@@ -111,10 +111,22 @@ class AudioProcessor:
         Raises:
             AudioCorruptedError: If audio file cannot be loaded
         """
-        try:
-            logger.debug(f"Loading audio file: {file_path}")
+        file_path = Path(file_path)
+        logger.debug(f"Loading audio file: {file_path}")
 
-            # Load audio in a thread to avoid blocking
+        # For compressed formats (m4a, mp3, aac, ogg), use pydub to convert first
+        compressed_formats = {'.m4a', '.mp3', '.aac', '.ogg', '.wma', '.flac'}
+
+        if file_path.suffix.lower() in compressed_formats:
+            try:
+                logger.debug(f"Compressed format detected ({file_path.suffix}), using pydub")
+                audio_data, sample_rate = await self._load_with_pydub(file_path)
+                return audio_data, sample_rate
+            except Exception as e:
+                logger.warning(f"Pydub fallback failed: {e}, trying librosa directly")
+
+        # Try loading with librosa
+        try:
             audio_data, sample_rate = await asyncio.to_thread(
                 librosa.load,
                 file_path,
@@ -135,6 +147,66 @@ class AudioProcessor:
         except Exception as e:
             logger.error(f"Failed to load audio file {file_path}: {e}")
             raise AudioCorruptedError(f"Cannot load audio file: {e}")
+
+    async def _load_with_pydub(self, file_path: Path) -> Tuple[np.ndarray, int]:
+        """
+        Load audio using ffmpeg directly (for compressed formats like m4a, mp3)
+
+        Args:
+            file_path: Path to audio file
+
+        Returns:
+            Tuple of (audio_data, sample_rate)
+        """
+        import subprocess
+        import tempfile
+
+        # Get ffmpeg path from imageio-ffmpeg
+        try:
+            import imageio_ffmpeg
+            ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        except ImportError:
+            ffmpeg_path = "ffmpeg"
+
+        def _convert():
+            # Create temp WAV file
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                temp_wav = tmp.name
+
+            try:
+                # Use ffmpeg to convert to WAV
+                cmd = [
+                    ffmpeg_path,
+                    '-i', str(file_path),
+                    '-ar', '16000',  # 16kHz sample rate
+                    '-ac', '1',       # mono
+                    '-f', 'wav',
+                    '-y',             # overwrite
+                    temp_wav
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    raise Exception(f"ffmpeg error: {result.stderr}")
+
+                # Load the converted WAV file
+                audio_data, sample_rate = sf.read(temp_wav)
+                return audio_data.astype(np.float32), sample_rate
+
+            finally:
+                # Cleanup temp file
+                import os
+                if os.path.exists(temp_wav):
+                    os.remove(temp_wav)
+
+        audio_data, sample_rate = await asyncio.to_thread(_convert)
+
+        logger.debug(
+            f"Loaded audio with ffmpeg: duration={len(audio_data)/sample_rate:.2f}s, "
+            f"sample_rate={sample_rate}Hz"
+        )
+
+        return audio_data, sample_rate
 
     async def preprocess_audio(
         self,
