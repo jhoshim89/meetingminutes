@@ -70,6 +70,8 @@ class UploadProvider with ChangeNotifier {
     required String filePath,
     required String title,
     required int durationSeconds,
+    String? templateId,
+    List<String>? tags,
   }) async {
     _state = UploadState.uploading;
     _error = null;
@@ -81,6 +83,8 @@ class UploadProvider with ChangeNotifier {
       debugPrint('UploadProvider: Creating meeting record');
       final meeting = await _supabaseService.createMeeting(
         title: title,
+        templateId: templateId,
+        tags: tags,
         metadata: {
           'upload_started_at': DateTime.now().toIso8601String(),
         },

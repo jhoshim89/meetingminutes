@@ -30,6 +30,8 @@ class Meeting(BaseModel):
     duration_seconds: Optional[float] = None
     error_message: Optional[str] = None
     processed_by: Optional[str] = None
+    template_id: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, description="Tags for categorizing meetings")
 
     class Config:
         use_enum_values = True

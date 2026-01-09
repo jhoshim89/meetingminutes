@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 ENABLE_GPU = os.getenv("ENABLE_GPU", "true").lower() == "true"
 CUDA_DEVICE = int(os.getenv("CUDA_DEVICE", "0"))
 
+# HuggingFace Configuration (for pyannote diarization models)
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
+
 # Storage Configuration
 AUDIO_TEMP_DIR = Path(os.getenv("AUDIO_TEMP_DIR", "./temp_audio"))
 MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", "./models"))

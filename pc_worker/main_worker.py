@@ -23,13 +23,16 @@ from config import (
 from logger import get_logger
 from supabase_client import get_supabase_client
 from audio_processor import get_audio_processor
+from stt_pipeline import get_stt_pipeline, STTPipeline
 from summarizer import get_summarizer
 from realtime_worker import get_realtime_worker
-from models import MeetingStatus, Meeting
+from models import MeetingStatus, Meeting, Transcript
 from exceptions import (
     PCWorkerException,
     AudioDownloadError,
     AudioPreprocessingError,
+    TranscriptionError,
+    DiarizationError,
     SupabaseQueryError,
     SummaryGenerationError
 )
@@ -62,6 +65,7 @@ class PCWorker:
             normalize=True,
             remove_silence=False
         )
+        self.stt_pipeline: Optional[STTPipeline] = None  # Lazy initialization
         self.summarizer = get_summarizer() if SUMMARIZATION_ENABLED else None
         self.realtime = get_realtime_worker(self.supabase.client)
 
@@ -75,6 +79,18 @@ class PCWorker:
             memory_gb=f"{system_info.memory_available_gb:.2f}",
             summarization_enabled=SUMMARIZATION_ENABLED
         )
+
+    async def _ensure_stt_pipeline(self) -> STTPipeline:
+        """Ensure STT pipeline is initialized (lazy loading)"""
+        if self.stt_pipeline is None:
+            logger.info("Initializing STT pipeline (WhisperX + Speaker Diarization)...")
+            self.stt_pipeline = get_stt_pipeline(
+                enable_preprocessing=True,
+                enable_noise_reduction=True
+            )
+            await self.stt_pipeline.initialize()
+            logger.info("STT pipeline initialized successfully")
+        return self.stt_pipeline
 
     async def start(self):
         """Start the worker main loop"""
@@ -221,22 +237,53 @@ class PCWorker:
                 sample_rate=audio_metadata.sample_rate
             )
 
-            # Steps 6-9: AI Processing (Phase 2 & 3)
-            # TODO: Implement WhisperX transcription
-            # TODO: Implement speaker diarization
-            # TODO: Implement speaker identification
-            # TODO: Save all results to Supabase
+            # Step 6: Run STT + Speaker Diarization pipeline
+            stt_pipeline = await self._ensure_stt_pipeline()
 
-            # Placeholder for mock transcript (will come from WhisperX in Phase 2)
-            mock_transcript_segments = []
+            logger.log_meeting_event(meeting_id, "stt_started")
+            pipeline_result = await stt_pipeline.process_audio(
+                audio_path=processed_audio_path,
+                meeting_id=meeting_id,
+                language="ko",  # Korean (can be made configurable)
+                num_speakers=None,  # Auto-detect
+                enhance_audio=False  # Already preprocessed
+            )
 
-            # Step 7: Generate summary with Ollama + Gemma 2 (Phase 3)
+            logger.log_meeting_event(
+                meeting_id,
+                "stt_completed",
+                segments=len(pipeline_result.transcript.segments),
+                speakers=pipeline_result.num_speakers_detected,
+                transcription_time=f"{pipeline_result.transcription_time:.2f}s",
+                diarization_time=f"{pipeline_result.diarization_time:.2f}s",
+                avg_confidence=f"{pipeline_result.average_confidence:.2f}" if pipeline_result.average_confidence else "N/A"
+            )
+
+            # Step 7: Save transcript to Supabase
+            if pipeline_result.transcript.segments:
+                await self.supabase.save_transcript(meeting_id, pipeline_result.transcript)
+                logger.log_meeting_event(
+                    meeting_id,
+                    "transcript_saved",
+                    segment_count=len(pipeline_result.transcript.segments)
+                )
+
+            # Step 8: Save speakers to Supabase
+            if pipeline_result.speakers:
+                await self.supabase.save_speakers(meeting_id, pipeline_result.speakers)
+                logger.log_meeting_event(
+                    meeting_id,
+                    "speakers_saved",
+                    speaker_count=len(pipeline_result.speakers)
+                )
+
+            # Step 9: Generate summary with Ollama + Gemma 2
             summary = None
             if SUMMARIZATION_ENABLED and self.summarizer:
-                if mock_transcript_segments:  # Only summarize if we have transcript
+                if pipeline_result.transcript.segments:
                     try:
                         summary = await self.summarizer.summarize_with_retry(
-                            segments=mock_transcript_segments,
+                            segments=pipeline_result.transcript.segments,
                             meeting_id=meeting_id,
                             extract_details=True
                         )
@@ -273,6 +320,8 @@ class PCWorker:
                 result_data={
                     'processing_time': processing_time,
                     'duration': audio_metadata.duration_seconds,
+                    'transcript_segments': len(pipeline_result.transcript.segments),
+                    'speakers_detected': pipeline_result.num_speakers_detected,
                     'summary_generated': summary is not None
                 }
             )
@@ -288,6 +337,10 @@ class PCWorker:
             await self._handle_processing_error(meeting_id, "Audio download failed", e)
         except AudioPreprocessingError as e:
             await self._handle_processing_error(meeting_id, "Audio preprocessing failed", e)
+        except TranscriptionError as e:
+            await self._handle_processing_error(meeting_id, "Transcription failed", e)
+        except DiarizationError as e:
+            await self._handle_processing_error(meeting_id, "Speaker diarization failed", e)
         except PCWorkerException as e:
             await self._handle_processing_error(meeting_id, "Processing failed", e)
         except Exception as e:
@@ -305,28 +358,68 @@ class PCWorker:
         """
         Apply template tags to a meeting (auto-tagging on processing start)
 
-        This is an idempotent operation - if tags are already applied,
-        the meeting record will just be updated with the same tags.
+        This method checks if the meeting has a template_id assigned.
+        If so, it fetches the template and applies its tags to the meeting.
 
-        Integration point: When implemented, this should:
-        1. Fetch templates for the user
-        2. Allow selection based on meeting context (title, duration, etc.)
-        3. Apply selected template's tags to the meeting
+        This is an idempotent operation - if tags are already applied,
+        they won't be overwritten if they're non-empty.
 
         Args:
             meeting_id: Meeting identifier
             user_id: User identifier to fetch templates
         """
         try:
-            # Note: In the current schema, meetings table should have a 'tags' column
-            # This method demonstrates the integration point for template-based tagging
-            # Actual implementation depends on the meetings table structure and
-            # whether template auto-selection is desired or manual selection
+            # Fetch the meeting to check for template_id and existing tags
+            meeting = await self.supabase.get_meeting_by_id(meeting_id)
+            if not meeting:
+                logger.warning(f"Meeting {meeting_id} not found for template tagging")
+                return
 
-            logger.log_meeting_event(
-                meeting_id,
-                "template_tagging_completed"
-            )
+            # If meeting already has tags, don't overwrite them
+            if meeting.tags and len(meeting.tags) > 0:
+                logger.debug(f"Meeting {meeting_id} already has tags: {meeting.tags}")
+                logger.log_meeting_event(
+                    meeting_id,
+                    "template_tagging_skipped",
+                    reason="existing_tags"
+                )
+                return
+
+            # Check if meeting has a template_id assigned
+            if not meeting.template_id:
+                logger.debug(f"Meeting {meeting_id} has no template assigned")
+                logger.log_meeting_event(
+                    meeting_id,
+                    "template_tagging_skipped",
+                    reason="no_template"
+                )
+                return
+
+            # Fetch the template to get tags
+            template = await self.supabase.get_template_by_id(meeting.template_id, user_id)
+            if not template:
+                logger.warning(f"Template {meeting.template_id} not found for meeting {meeting_id}")
+                return
+
+            # Apply template tags to the meeting
+            if template.tags and len(template.tags) > 0:
+                success = await self.supabase.update_meeting_tags(meeting_id, template.tags)
+                if success:
+                    logger.log_meeting_event(
+                        meeting_id,
+                        "template_tagging_completed",
+                        template_name=template.name,
+                        tags_applied=template.tags
+                    )
+                else:
+                    logger.warning(f"Failed to apply template tags to meeting {meeting_id}")
+            else:
+                logger.debug(f"Template {template.name} has no tags to apply")
+                logger.log_meeting_event(
+                    meeting_id,
+                    "template_tagging_skipped",
+                    reason="template_has_no_tags"
+                )
 
         except Exception as e:
             # Log but don't fail processing on tagging errors
@@ -391,6 +484,12 @@ class PCWorker:
 
         if self.current_jobs > 0:
             logger.warning(f"Forced shutdown with {self.current_jobs} job(s) still running")
+
+        # Cleanup STT pipeline resources (GPU memory, models)
+        if self.stt_pipeline:
+            logger.info("Cleaning up STT pipeline...")
+            await self.stt_pipeline.cleanup()
+            self.stt_pipeline = None
 
         # Final cleanup
         cleanup_count = cleanup_temp_files(AUDIO_TEMP_DIR, max_age_hours=0)

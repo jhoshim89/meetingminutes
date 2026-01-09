@@ -194,6 +194,48 @@ class SupabaseClient:
             logger.error(f"Unexpected error updating meeting status: {e}")
             raise SupabaseQueryError(f"Unexpected error: {e}")
 
+
+    async def update_meeting_tags(
+        self,
+        meeting_id: str,
+        tags: List[str]
+    ) -> bool:
+        """
+        Update meeting tags
+
+        Args:
+            meeting_id: Meeting identifier
+            tags: List of tags to apply
+
+        Returns:
+            True if successful, False otherwise
+
+        Raises:
+            SupabaseQueryError: If update fails
+        """
+        try:
+            update_data = {
+                'tags': tags,
+                'updated_at': datetime.now().isoformat()
+            }
+
+            await asyncio.to_thread(
+                lambda: self.client.table('meetings')
+                .update(update_data)
+                .eq('id', meeting_id)
+                .execute()
+            )
+
+            logger.debug(f"Updated tags for meeting {meeting_id}: {tags}")
+            return True
+
+        except APIError as e:
+            logger.error(f"Supabase API error updating meeting tags: {e}")
+            raise SupabaseQueryError(f"Failed to update meeting tags: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error updating meeting tags: {e}")
+            return False
+
     async def get_meeting_audio_url(self, meeting_id: str) -> Optional[str]:
         """
         Get audio file URL from meeting record

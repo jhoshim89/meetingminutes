@@ -16,6 +16,7 @@ class MeetingProvider with ChangeNotifier {
   List<TranscriptModel> _transcripts = [];
   bool _isLoading = false;
   String? _error;
+  String? _selectedTemplateId;
 
   // Getters
   List<MeetingModel> get meetings => _meetings;
@@ -23,6 +24,7 @@ class MeetingProvider with ChangeNotifier {
   List<TranscriptModel> get transcripts => _transcripts;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String? get selectedTemplateId => _selectedTemplateId;
 
   // Filtered meetings
   List<MeetingModel> get completedMeetings =>
@@ -78,13 +80,16 @@ class MeetingProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchMeetings({String? status}) async {
+  Future<void> fetchMeetings({String? status, String? templateId}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _meetings = await _supabaseService.getMeetings(status: status);
+      _meetings = await _supabaseService.getMeetings(
+        status: status,
+        templateId: templateId ?? _selectedTemplateId,
+      );
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -116,6 +121,8 @@ class MeetingProvider with ChangeNotifier {
     required String title,
     String? audioUrl,
     Map<String, dynamic>? metadata,
+    String? templateId,
+    List<String>? tags,
   }) async {
     _isLoading = true;
     _error = null;
@@ -126,6 +133,8 @@ class MeetingProvider with ChangeNotifier {
         title: title,
         audioUrl: audioUrl,
         metadata: metadata,
+        templateId: templateId ?? _selectedTemplateId,
+        tags: tags,
       );
 
       _meetings.insert(0, meeting);
@@ -233,11 +242,31 @@ class MeetingProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Template filtering
+  void setTemplateFilter(String? templateId) {
+    _selectedTemplateId = templateId;
+    notifyListeners();
+    fetchMeetings();
+  }
+
+  void clearTemplateFilter() {
+    _selectedTemplateId = null;
+    notifyListeners();
+    fetchMeetings();
+  }
+
+  // Get meetings filtered by current template
+  List<MeetingModel> get filteredMeetings {
+    if (_selectedTemplateId == null) return _meetings;
+    return _meetings.where((m) => m.templateId == _selectedTemplateId).toList();
+  }
+
   void reset() {
     _meetings = [];
     _currentMeeting = null;
     _transcripts = [];
     _error = null;
+    _selectedTemplateId = null;
     notifyListeners();
   }
 

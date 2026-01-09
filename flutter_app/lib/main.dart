@@ -12,6 +12,7 @@ import 'providers/meeting_provider.dart';
 import 'providers/recorder_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/speaker_provider.dart';
+import 'providers/template_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RecorderProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => SpeakerProvider()),
+        ChangeNotifierProvider(create: (_) => TemplateProvider()),
       ],
       child: MaterialApp(
         title: 'Meeting Minutes',

@@ -4,6 +4,7 @@ import '../models/meeting_model.dart';
 import '../models/speaker_model.dart';
 import '../models/transcript_model.dart';
 import '../models/search_result_model.dart';
+import '../models/template_model.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
@@ -25,12 +26,17 @@ class SupabaseService {
     int limit = 50,
     int offset = 0,
     String? status,
+    String? templateId,
   }) async {
     try {
       var query = client.from('meetings').select().eq('user_id', userId!);
 
       if (status != null) {
         query = query.eq('status', status);
+      }
+      
+      if (templateId != null) {
+        query = query.eq('template_id', templateId);
       }
 
       final response = await query
@@ -64,6 +70,8 @@ class SupabaseService {
     required String title,
     String? audioUrl,
     Map<String, dynamic>? metadata,
+    String? templateId,
+    List<String>? tags,
   }) async {
     try {
       final response = await client.from('meetings').insert({
@@ -73,6 +81,8 @@ class SupabaseService {
         'status': 'recording',
         'audio_url': audioUrl,
         'metadata': metadata,
+        'template_id': templateId,
+        'tags': tags ?? [],
       }).select().single();
 
       return MeetingModel.fromJson(response);
@@ -90,6 +100,8 @@ class SupabaseService {
     String? summary,
     int? speakerCount,
     Map<String, dynamic>? metadata,
+    String? templateId,
+    List<String>? tags,
   }) async {
     try {
       final updates = <String, dynamic>{
@@ -104,6 +116,8 @@ class SupabaseService {
       if (summary != null) updates['summary'] = summary;
       if (speakerCount != null) updates['speaker_count'] = speakerCount;
       if (metadata != null) updates['metadata'] = metadata;
+      if (templateId != null) updates['template_id'] = templateId;
+      if (tags != null) updates['tags'] = tags;
 
       final response = await client
           .from('meetings')
@@ -192,15 +206,15 @@ class SupabaseService {
       var queryBuilder = client
           .from('transcript_chunks')
           .select()
-          .eq('user_id', userId!)
-          .textSearch('text', query, config: 'simple')
-          .limit(limit);
+          .eq('user_id', userId!);
 
       if (meetingId != null) {
         queryBuilder = queryBuilder.eq('meeting_id', meetingId);
       }
 
-      final response = await queryBuilder;
+      final response = await queryBuilder
+          .textSearch('text', query, config: 'simple')
+          .limit(limit);
 
       return (response as List).map((json) {
         return SearchResultModel(
@@ -417,6 +431,101 @@ class SupabaseService {
       return tempFile.path;
     } catch (e) {
       throw Exception('Failed to download audio sample: $e');
+    }
+  }
+
+  // ====================
+  // TEMPLATES
+  // ====================
+
+  Future<List<TemplateModel>> getTemplates() async {
+    try {
+      final response = await client
+          .from('templates')
+          .select()
+          .eq('user_id', userId!)
+          .order('created_at', ascending: false);
+
+      return (response as List)
+          .map((json) => TemplateModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch templates: $e');
+    }
+  }
+
+  Future<TemplateModel> getTemplateById(String templateId) async {
+    try {
+      final response = await client
+          .from('templates')
+          .select()
+          .eq('id', templateId)
+          .eq('user_id', userId!)
+          .single();
+
+      return TemplateModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to fetch template: $e');
+    }
+  }
+
+  Future<TemplateModel> createTemplate({
+    required String name,
+    String? description,
+    List<String>? tags,
+  }) async {
+    try {
+      final response = await client.from('templates').insert({
+        'user_id': userId,
+        'name': name,
+        'description': description,
+        'tags': tags ?? [],
+      }).select().single();
+
+      return TemplateModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to create template: $e');
+    }
+  }
+
+  Future<TemplateModel> updateTemplate(
+    String templateId, {
+    String? name,
+    String? description,
+    List<String>? tags,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (name != null) updates['name'] = name;
+      if (description != null) updates['description'] = description;
+      if (tags != null) updates['tags'] = tags;
+
+      final response = await client
+          .from('templates')
+          .update(updates)
+          .eq('id', templateId)
+          .eq('user_id', userId!)
+          .select()
+          .single();
+
+      return TemplateModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to update template: $e');
+    }
+  }
+
+  Future<void> deleteTemplate(String templateId) async {
+    try {
+      await client
+          .from('templates')
+          .delete()
+          .eq('id', templateId)
+          .eq('user_id', userId!);
+    } catch (e) {
+      throw Exception('Failed to delete template: $e');
     }
   }
 

@@ -18,6 +18,8 @@ class RecorderProvider with ChangeNotifier {
   String? _error;
   MeetingModel? _currentMeeting;
   String? _recordingTitle;
+  String? _selectedTemplateId;
+  List<String>? _recordingTags;
 
   StreamSubscription? _durationSubscription;
   StreamSubscription? _amplitudeSubscription;
@@ -32,6 +34,8 @@ class RecorderProvider with ChangeNotifier {
   bool get isRecording => _state == RecorderState.recording;
   bool get isPaused => _state == RecorderState.paused;
   bool get isProcessing => _state == RecorderState.processing;
+  String? get selectedTemplateId => _selectedTemplateId;
+  List<String>? get recordingTags => _recordingTags;
 
   RecorderProvider() {
     _initialize();
@@ -64,10 +68,18 @@ class RecorderProvider with ChangeNotifier {
     return await _recordingService.hasPermission();
   }
 
-  Future<void> startRecording({String? title}) async {
+  void setTemplate(String? templateId, {List<String>? tags}) {
+    _selectedTemplateId = templateId;
+    _recordingTags = tags;
+    notifyListeners();
+  }
+
+  Future<void> startRecording({String? title, String? templateId, List<String>? tags}) async {
     try {
       _error = null;
       _recordingTitle = title ?? 'New Meeting ${DateTime.now().toString().substring(0, 16)}';
+      if (templateId != null) _selectedTemplateId = templateId;
+      if (tags != null) _recordingTags = tags;
 
       // Check permission
       if (!await _recordingService.hasPermission()) {
@@ -131,6 +143,8 @@ class RecorderProvider with ChangeNotifier {
         filePath: filePath,
         title: _recordingTitle ?? 'Untitled Meeting',
         durationSeconds: _duration.inSeconds,
+        templateId: _selectedTemplateId,
+        tags: _recordingTags,
       );
 
       if (meeting == null) {
@@ -177,6 +191,8 @@ class RecorderProvider with ChangeNotifier {
     _error = null;
     _currentMeeting = null;
     _recordingTitle = null;
+    _selectedTemplateId = null;
+    _recordingTags = null;
     notifyListeners();
   }
 

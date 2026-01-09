@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/recorder_provider.dart';
 import '../providers/meeting_provider.dart';
+import '../providers/template_provider.dart';
 
 class RecorderScreen extends StatefulWidget {
   const RecorderScreen({Key? key}) : super(key: key);
@@ -12,6 +13,15 @@ class RecorderScreen extends StatefulWidget {
 
 class _RecorderScreenState extends State<RecorderScreen> {
   final TextEditingController _titleController = TextEditingController();
+  String? _selectedTemplateId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TemplateProvider>().fetchTemplates();
+    });
+  }
 
   @override
   void dispose() {
@@ -45,6 +55,52 @@ class _RecorderScreenState extends State<RecorderScreen> {
                         prefixIcon: const Icon(Icons.title),
                       ),
                     ),
+
+                  // Template Selection (only show when not recording)
+                  if (!recorderProvider.isRecording && !recorderProvider.isPaused) ...[
+                    const SizedBox(height: 16),
+                    Consumer<TemplateProvider>(
+                      builder: (context, templateProvider, child) {
+                        return DropdownButtonFormField<String?>(
+                          value: _selectedTemplateId,
+                          decoration: InputDecoration(
+                            labelText: 'Template (Optional)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.category),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('No Template'),
+                            ),
+                            ...templateProvider.templates.map((template) {
+                              return DropdownMenuItem<String?>(
+                                value: template.id,
+                                child: Text(template.name),
+                              );
+                            }),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedTemplateId = value;
+                            });
+                            if (value != null) {
+                              final template = templateProvider.templates
+                                  .firstWhere((t) => t.id == value);
+                              context.read<RecorderProvider>().setTemplate(
+                                value,
+                                tags: template.tags,
+                              );
+                            } else {
+                              context.read<RecorderProvider>().setTemplate(null);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
@@ -129,6 +185,9 @@ class _RecorderScreenState extends State<RecorderScreen> {
                             onPressed: () {
                               recorderProvider.reset();
                               _titleController.clear();
+                              setState(() {
+                                _selectedTemplateId = null;
+                              });
                               // Refresh meetings list
                               context.read<MeetingProvider>().fetchMeetings();
                               // Navigate to home

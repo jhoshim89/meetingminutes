@@ -11,6 +11,8 @@ class MeetingModel {
   final String? summary;
   final int? speakerCount;
   final Map<String, dynamic>? metadata;
+  final String? templateId;
+  final List<String> tags;
 
   MeetingModel({
     required this.id,
@@ -25,6 +27,8 @@ class MeetingModel {
     this.summary,
     this.speakerCount,
     this.metadata,
+    this.templateId,
+    this.tags = const [],
   });
 
   factory MeetingModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,8 @@ class MeetingModel {
       summary: json['summary'] as String?,
       speakerCount: json['speaker_count'] as int?,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      templateId: json['template_id'] as String?,
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 
@@ -60,6 +66,8 @@ class MeetingModel {
       'summary': summary,
       'speaker_count': speakerCount,
       'metadata': metadata,
+      'template_id': templateId,
+      'tags': tags,
     };
   }
 
@@ -76,6 +84,8 @@ class MeetingModel {
     String? summary,
     int? speakerCount,
     Map<String, dynamic>? metadata,
+    String? templateId,
+    List<String>? tags,
   }) {
     return MeetingModel(
       id: id ?? this.id,
@@ -90,6 +100,8 @@ class MeetingModel {
       summary: summary ?? this.summary,
       speakerCount: speakerCount ?? this.speakerCount,
       metadata: metadata ?? this.metadata,
+      templateId: templateId ?? this.templateId,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -121,4 +133,6 @@ class MeetingModel {
         return 'Unknown';
     }
   }
+
+  String get tagsDisplay => tags.isEmpty ? '' : tags.join(', ');
 }

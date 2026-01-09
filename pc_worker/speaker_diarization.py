@@ -15,7 +15,7 @@ from pyannote.core import Annotation, Segment
 from models import TranscriptSegment, SpeakerEmbedding
 from exceptions import DiarizationError
 from logger import get_logger
-from config import DIARIZATION_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR
+from config import DIARIZATION_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR, HUGGINGFACE_TOKEN
 
 logger = get_logger("speaker_diarization")
 
@@ -467,10 +467,8 @@ def get_diarization_engine(
     Returns:
         SpeakerDiarizationEngine instance
     """
-    import os
-
-    # Try to get HF token from environment
-    auth_token = use_auth_token or os.getenv("HUGGINGFACE_TOKEN")
+    # Use provided token, or fall back to config
+    auth_token = use_auth_token or HUGGINGFACE_TOKEN
 
     return SpeakerDiarizationEngine(
         model_name=model_name or DIARIZATION_MODEL,

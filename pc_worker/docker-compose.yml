@@ -1,0 +1,61 @@
+
+
+services:
+  # Ollama LLM Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: meetingminutes-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # PC Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meetingminutes-worker
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override Ollama URL for Docker network
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      # Persist temp audio files
+      - ./temp_audio:/app/temp_audio
+      # Persist model cache (WhisperX, HuggingFace models)
+      - worker_models:/app/models
+      # Persist logs
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  ollama_data:
+    name: meetingminutes-ollama-data
+  worker_models:
+    name: meetingminutes-worker-models

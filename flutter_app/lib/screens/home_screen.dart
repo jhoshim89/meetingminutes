@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/meeting_provider.dart';
 import '../providers/search_provider.dart';
+import '../providers/template_provider.dart';
 import '../models/meeting_model.dart';
 import 'meeting_detail_screen.dart';
 
@@ -21,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MeetingProvider>().fetchMeetings();
+      context.read<TemplateProvider>().fetchTemplates();
     });
   }
 
@@ -73,6 +75,41 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+          // Template Filter
+          Consumer2<TemplateProvider, MeetingProvider>(
+            builder: (context, templateProvider, meetingProvider, child) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: DropdownButtonFormField<String?>(
+                  value: meetingProvider.selectedTemplateId,
+                  decoration: InputDecoration(
+                    labelText: 'Filter by Template',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All Templates'),
+                    ),
+                    ...templateProvider.templates.map((template) {
+                      return DropdownMenuItem<String?>(
+                        value: template.id,
+                        child: Text(template.name),
+                      );
+                    }),
+                  ],
+                  onChanged: (value) {
+                    meetingProvider.setTemplateFilter(value);
+                  },
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+
           // Content
           Expanded(
             child: Consumer2<MeetingProvider, SearchProvider>(
@@ -108,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Determine which meetings to show
                 final meetings = searchProvider.hasQuery
-                    ? searchProvider.searchResults
+                    ? searchProvider.meetingResults
                     : meetingProvider.meetings;
 
                 // Show empty state
@@ -222,6 +259,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
+              ),
+            ],
+            if (meeting.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: meeting.tags.map((tag) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      tag,
+                      style: const TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ],
