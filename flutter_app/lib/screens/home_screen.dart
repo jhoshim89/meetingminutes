@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import '../providers/meeting_provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/template_provider.dart';
+import '../providers/appointment_provider.dart';
 import '../models/meeting_model.dart';
+import '../widgets/today_appointments_card.dart';
 import 'meeting_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MeetingProvider>().fetchMeetings();
       context.read<TemplateProvider>().fetchTemplates();
+      context.read<AppointmentProvider>().fetchTodayAppointments();
     });
   }
 
@@ -48,6 +51,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
+          // Today's Appointments Card
+          const TodayAppointmentsCard(),
+
           // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),

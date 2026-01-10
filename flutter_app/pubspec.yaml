@@ -37,6 +37,14 @@ dependencies:
   # Caching
   cached_network_image: ^3.2.3
 
+  # Firebase Cloud Messaging (Web Push)
+  firebase_core: ^2.24.0
+  firebase_messaging: ^14.7.0
+
+  # Calendar & Scheduling
+  table_calendar: ^3.0.9
+  timezone: ^0.9.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

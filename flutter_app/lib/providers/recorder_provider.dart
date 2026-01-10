@@ -4,6 +4,7 @@ import '../models/meeting_model.dart';
 import '../services/recording_service.dart';
 import '../services/supabase_service.dart';
 import 'upload_provider.dart';
+import 'appointment_provider.dart';
 
 enum RecorderState { idle, recording, paused, processing, completed, error }
 
@@ -20,6 +21,7 @@ class RecorderProvider with ChangeNotifier {
   String? _recordingTitle;
   String? _selectedTemplateId;
   List<String>? _recordingTags;
+  String? _currentAppointmentId;
 
   StreamSubscription? _durationSubscription;
   StreamSubscription? _amplitudeSubscription;
@@ -36,6 +38,7 @@ class RecorderProvider with ChangeNotifier {
   bool get isProcessing => _state == RecorderState.processing;
   String? get selectedTemplateId => _selectedTemplateId;
   List<String>? get recordingTags => _recordingTags;
+  String? get currentAppointmentId => _currentAppointmentId;
 
   RecorderProvider() {
     _initialize();
@@ -74,12 +77,19 @@ class RecorderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startRecording({String? title, String? templateId, List<String>? tags}) async {
+  Future<void> startRecording({
+    String? title,
+    String? templateId,
+    List<String>? tags,
+    String? appointmentId,
+    AppointmentProvider? appointmentProvider,
+  }) async {
     try {
       _error = null;
       _recordingTitle = title ?? 'New Meeting ${DateTime.now().toString().substring(0, 16)}';
       if (templateId != null) _selectedTemplateId = templateId;
       if (tags != null) _recordingTags = tags;
+      _currentAppointmentId = appointmentId;
 
       // Check permission
       if (!await _recordingService.hasPermission()) {
@@ -87,6 +97,12 @@ class RecorderProvider with ChangeNotifier {
         _state = RecorderState.error;
         notifyListeners();
         return;
+      }
+
+      // Mark appointment as recording if linked
+      if (_currentAppointmentId != null && appointmentProvider != null) {
+        await appointmentProvider.markAsRecording(_currentAppointmentId!);
+        debugPrint('Marked appointment $_currentAppointmentId as recording');
       }
 
       // Start recording
@@ -126,7 +142,7 @@ class RecorderProvider with ChangeNotifier {
     }
   }
 
-  Future<MeetingModel?> stopRecording() async {
+  Future<MeetingModel?> stopRecording({AppointmentProvider? appointmentProvider}) async {
     _state = RecorderState.processing;
     notifyListeners();
 
@@ -154,6 +170,15 @@ class RecorderProvider with ChangeNotifier {
       _currentMeeting = meeting;
       _state = RecorderState.completed;
       _error = null;
+
+      // Mark appointment as completed if linked
+      if (_currentAppointmentId != null && appointmentProvider != null) {
+        await appointmentProvider.markAsCompleted(
+          _currentAppointmentId!,
+          meetingId: meeting.id,
+        );
+        debugPrint('Marked appointment $_currentAppointmentId as completed with meeting ${meeting.id}');
+      }
 
       notifyListeners();
       return meeting;
@@ -193,6 +218,7 @@ class RecorderProvider with ChangeNotifier {
     _recordingTitle = null;
     _selectedTemplateId = null;
     _recordingTags = null;
+    _currentAppointmentId = null;
     notifyListeners();
   }
 

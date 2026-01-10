@@ -5,6 +5,7 @@ import '../models/speaker_model.dart';
 import '../models/transcript_model.dart';
 import '../models/search_result_model.dart';
 import '../models/template_model.dart';
+import '../models/appointment_model.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
@@ -526,6 +527,227 @@ class SupabaseService {
           .eq('user_id', userId!);
     } catch (e) {
       throw Exception('Failed to delete template: $e');
+    }
+  }
+
+  // ====================
+  // APPOINTMENTS
+  // ====================
+
+  /// Get appointments with optional filtering and pagination
+  Future<List<AppointmentModel>> getAppointments({
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      var query = client
+          .from('appointments')
+          .select()
+          .eq('user_id', userId!);
+
+      if (status != null) {
+        query = query.eq('status', status);
+      }
+
+      if (fromDate != null) {
+        query = query.gte('scheduled_at', fromDate.toIso8601String());
+      }
+
+      if (toDate != null) {
+        query = query.lte('scheduled_at', toDate.toIso8601String());
+      }
+
+      final response = await query
+          .order('scheduled_at', ascending: true)
+          .range(offset, offset + limit - 1);
+
+      return (response as List)
+          .map((json) => AppointmentModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch appointments: $e');
+    }
+  }
+
+  /// Get single appointment by ID
+  Future<AppointmentModel?> getAppointmentById(String appointmentId) async {
+    try {
+      final response = await client
+          .from('appointments')
+          .select()
+          .eq('id', appointmentId)
+          .eq('user_id', userId!)
+          .single();
+
+      return AppointmentModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to fetch appointment: $e');
+    }
+  }
+
+  /// Create a new appointment
+  Future<AppointmentModel?> createAppointment({
+    required String title,
+    String? description,
+    required DateTime scheduledAt,
+    int reminderMinutes = 5,
+    int durationMinutes = 60,
+    String? templateId,
+    List<String>? tags,
+    bool autoRecord = true,
+    String? fcmToken,
+  }) async {
+    try {
+      final response = await client.from('appointments').insert({
+        'user_id': userId,
+        'title': title,
+        'description': description,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'reminder_minutes': reminderMinutes,
+        'duration_minutes': durationMinutes,
+        'template_id': templateId,
+        'tags': tags ?? [],
+        'status': 'pending',
+        'auto_record': autoRecord,
+        'fcm_token': fcmToken,
+        'notification_sent': false,
+      }).select().single();
+
+      return AppointmentModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to create appointment: $e');
+    }
+  }
+
+  /// Update an existing appointment
+  Future<AppointmentModel?> updateAppointment(
+    String appointmentId, {
+    String? title,
+    String? description,
+    DateTime? scheduledAt,
+    int? reminderMinutes,
+    int? durationMinutes,
+    String? templateId,
+    List<String>? tags,
+    String? status,
+    bool? autoRecord,
+    String? fcmToken,
+    bool? notificationSent,
+    String? meetingId,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (title != null) updates['title'] = title;
+      if (description != null) updates['description'] = description;
+      if (scheduledAt != null) updates['scheduled_at'] = scheduledAt.toIso8601String();
+      if (reminderMinutes != null) updates['reminder_minutes'] = reminderMinutes;
+      if (durationMinutes != null) updates['duration_minutes'] = durationMinutes;
+      if (templateId != null) updates['template_id'] = templateId;
+      if (tags != null) updates['tags'] = tags;
+      if (status != null) updates['status'] = status;
+      if (autoRecord != null) updates['auto_record'] = autoRecord;
+      if (fcmToken != null) updates['fcm_token'] = fcmToken;
+      if (notificationSent != null) updates['notification_sent'] = notificationSent;
+      if (meetingId != null) updates['meeting_id'] = meetingId;
+
+      final response = await client
+          .from('appointments')
+          .update(updates)
+          .eq('id', appointmentId)
+          .eq('user_id', userId!)
+          .select()
+          .single();
+
+      return AppointmentModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to update appointment: $e');
+    }
+  }
+
+  /// Delete an appointment
+  Future<bool> deleteAppointment(String appointmentId) async {
+    try {
+      await client
+          .from('appointments')
+          .delete()
+          .eq('id', appointmentId)
+          .eq('user_id', userId!);
+      return true;
+    } catch (e) {
+      throw Exception('Failed to delete appointment: $e');
+    }
+  }
+
+  /// Get today's appointments
+  Future<List<AppointmentModel>> getTodayAppointments() async {
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final response = await client
+          .from('appointments')
+          .select()
+          .eq('user_id', userId!)
+          .gte('scheduled_at', startOfDay.toIso8601String())
+          .lt('scheduled_at', endOfDay.toIso8601String())
+          .order('scheduled_at', ascending: true);
+
+      return (response as List)
+          .map((json) => AppointmentModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch today\'s appointments: $e');
+    }
+  }
+
+  /// Get upcoming appointments (future only, sorted by scheduled time)
+  Future<List<AppointmentModel>> getUpcomingAppointments({
+    int limit = 10,
+  }) async {
+    try {
+      final now = DateTime.now();
+
+      final response = await client
+          .from('appointments')
+          .select()
+          .eq('user_id', userId!)
+          .eq('status', 'pending')
+          .gte('scheduled_at', now.toIso8601String())
+          .order('scheduled_at', ascending: true)
+          .limit(limit);
+
+      return (response as List)
+          .map((json) => AppointmentModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch upcoming appointments: $e');
+    }
+  }
+
+  /// Update FCM token for push notifications
+  Future<bool> updateAppointmentFcmToken(
+    String appointmentId,
+    String fcmToken,
+  ) async {
+    try {
+      await client
+          .from('appointments')
+          .update({
+            'fcm_token': fcmToken,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', appointmentId)
+          .eq('user_id', userId!);
+      return true;
+    } catch (e) {
+      throw Exception('Failed to update FCM token: $e');
     }
   }
 

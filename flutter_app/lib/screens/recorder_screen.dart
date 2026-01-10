@@ -3,9 +3,13 @@ import 'package:provider/provider.dart';
 import '../providers/recorder_provider.dart';
 import '../providers/meeting_provider.dart';
 import '../providers/template_provider.dart';
+import '../providers/appointment_provider.dart';
+import '../models/appointment_model.dart';
 
 class RecorderScreen extends StatefulWidget {
-  const RecorderScreen({Key? key}) : super(key: key);
+  final String? appointmentId;
+
+  const RecorderScreen({Key? key, this.appointmentId}) : super(key: key);
 
   @override
   State<RecorderScreen> createState() => _RecorderScreenState();
@@ -14,13 +18,42 @@ class RecorderScreen extends StatefulWidget {
 class _RecorderScreenState extends State<RecorderScreen> {
   final TextEditingController _titleController = TextEditingController();
   String? _selectedTemplateId;
+  AppointmentModel? _linkedAppointment;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TemplateProvider>().fetchTemplates();
+      _loadAppointmentIfProvided();
     });
+  }
+
+  Future<void> _loadAppointmentIfProvided() async {
+    if (widget.appointmentId != null) {
+      try {
+        final appointmentProvider = context.read<AppointmentProvider>();
+        await appointmentProvider.fetchAndSelectAppointment(widget.appointmentId!);
+
+        if (appointmentProvider.selectedAppointment != null) {
+          setState(() {
+            _linkedAppointment = appointmentProvider.selectedAppointment;
+            _titleController.text = _linkedAppointment!.title;
+            _selectedTemplateId = _linkedAppointment!.templateId;
+          });
+
+          // Set template and tags in RecorderProvider
+          if (_linkedAppointment!.templateId != null) {
+            context.read<RecorderProvider>().setTemplate(
+              _linkedAppointment!.templateId,
+              tags: _linkedAppointment!.tags.isNotEmpty ? _linkedAppointment!.tags : null,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading appointment: $e');
+      }
+    }
   }
 
   @override
@@ -33,7 +66,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Meeting'),
+        title: Text(_linkedAppointment != null ? 'Record Scheduled Meeting' : 'New Meeting'),
       ),
       body: Consumer<RecorderProvider>(
         builder: (context, recorderProvider, child) {
@@ -42,8 +75,92 @@ class _RecorderScreenState extends State<RecorderScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Title Input (only show when not recording)
-                  if (!recorderProvider.isRecording && !recorderProvider.isPaused)
+                  // Appointment Info Banner
+                  if (_linkedAppointment != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200, width: 2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.event, color: Colors.blue.shade700, size: 24),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _linkedAppointment!.title,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, color: Colors.blue.shade600, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatAppointmentTime(_linkedAppointment!.scheduledAt),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.blue.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_linkedAppointment!.description != null &&
+                              _linkedAppointment!.description!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _linkedAppointment!.description!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Tap the button below to start recording',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Title Input (only show when not recording and no appointment)
+                  if (!recorderProvider.isRecording && !recorderProvider.isPaused && _linkedAppointment == null)
                     TextField(
                       controller: _titleController,
                       decoration: InputDecoration(
@@ -335,7 +452,10 @@ class _RecorderScreenState extends State<RecorderScreen> {
   Future<void> _handleMainAction(BuildContext context, RecorderProvider provider) async {
     if (provider.isRecording || provider.isPaused) {
       // Stop recording
-      final meeting = await provider.stopRecording();
+      final appointmentProvider = context.read<AppointmentProvider>();
+      final meeting = await provider.stopRecording(
+        appointmentProvider: appointmentProvider,
+      );
       if (meeting != null) {
         _titleController.clear();
       }
@@ -349,8 +469,12 @@ class _RecorderScreenState extends State<RecorderScreen> {
         return;
       }
 
+      final appointmentProvider = context.read<AppointmentProvider>();
       await provider.startRecording(
         title: _titleController.text.isEmpty ? null : _titleController.text,
+        templateId: _selectedTemplateId,
+        appointmentId: widget.appointmentId,
+        appointmentProvider: appointmentProvider,
       );
     }
   }
@@ -408,5 +532,21 @@ class _RecorderScreenState extends State<RecorderScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return "$hours:$minutes:$seconds";
+  }
+
+  String _formatAppointmentTime(DateTime scheduledAt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final appointmentDate = DateTime(scheduledAt.year, scheduledAt.month, scheduledAt.day);
+
+    final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+
+    if (appointmentDate == today) {
+      return 'Today at $timeStr';
+    } else if (appointmentDate == today.add(const Duration(days: 1))) {
+      return 'Tomorrow at $timeStr';
+    } else {
+      return '${scheduledAt.month}/${scheduledAt.day} at $timeStr';
+    }
   }
 }
