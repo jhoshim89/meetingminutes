@@ -31,6 +31,47 @@
 
   <title>meeting_minutes</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+
+  <!-- Firebase Configuration -->
+  <script>
+    // Firebase configuration for meeting-minutes-pwa
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGvZ2nnNsR-FmIsvADneCIcqeP4eJiuOE",
+      authDomain: "meeting-minutes-pwa.firebaseapp.com",
+      projectId: "meeting-minutes-pwa",
+      storageBucket: "meeting-minutes-pwa.firebasestorage.app",
+      messagingSenderId: "654552775170",
+      appId: "1:654552775170:web:fc3f1f322df3a5481c451b",
+      measurementId: "G-ZYX3HCDZFW"
+    };
+
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+      console.log('[Firebase] Initialized');
+    }
+
+    // Register Service Worker for Web Push
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/firebase-messaging-sw.js')
+        .then((registration) => {
+          console.log('[SW] Registered:', registration);
+
+          // Update service worker if new version available
+          registration.addEventListener('updatefound', () => {
+            console.log('[SW] Update found');
+          });
+        })
+        .catch((error) => {
+          console.error('[SW] Registration failed:', error);
+        });
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

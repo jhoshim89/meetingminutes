@@ -1,6 +1,7 @@
 {
-  "buildCommand": "chmod +x ./build.sh && ./build.sh",
+  "buildCommand": null,
   "outputDirectory": "flutter_app/build/web",
+  "installCommand": null,
   "framework": null,
   "rewrites": [
     { "source": "/(.+)", "destination": "/index.html" }
