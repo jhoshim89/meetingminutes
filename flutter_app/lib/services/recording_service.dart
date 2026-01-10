@@ -1,7 +1,9 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
+
+// Conditional import for non-web platforms
+import 'recording_service_io.dart' if (dart.library.html) 'recording_service_web.dart' as platform;
 
 class RecordingService {
   static final RecordingService _instance = RecordingService._internal();
@@ -14,7 +16,7 @@ class RecordingService {
   Duration _duration = Duration.zero;
   bool _isRecording = false;
   bool _isPaused = false;
-  String? _currentFilePath;
+  String? _currentFilePath; // On web, this will be a Blob URL
 
   // Getters
   bool get isRecording => _isRecording;
@@ -46,20 +48,32 @@ class RecordingService {
         throw Exception('Microphone permission not granted');
       }
 
-      // Generate file path
-      final directory = await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _currentFilePath = '${directory.path}/recording_$timestamp.m4a';
+      if (kIsWeb) {
+        // Web: Use Blob URL (no file path needed)
+        // Web uses opus/webm format
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.opus,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: '', // Empty path for web - returns Blob URL on stop
+        );
+        _currentFilePath = null; // Will be set on stop
+      } else {
+        // Native: Use file path
+        final filePath = await platform.getRecordingPath();
+        _currentFilePath = filePath;
 
-      // Start recording
-      await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
-        ),
-        path: _currentFilePath!,
-      );
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: _currentFilePath!,
+        );
+      }
 
       _isRecording = true;
       _isPaused = false;
@@ -113,8 +127,8 @@ class RecordingService {
       _stopTimer();
       _recordingStateController.add(false);
 
-      // Verify file exists
-      if (path != null && await File(path).exists()) {
+      if (path != null && path.isNotEmpty) {
+        _currentFilePath = path; // Update with actual path/Blob URL
         return path;
       }
 
@@ -134,13 +148,11 @@ class RecordingService {
       _stopTimer();
       _recordingStateController.add(false);
 
-      // Delete the file
-      if (_currentFilePath != null) {
-        final file = File(_currentFilePath!);
-        if (await file.exists()) {
-          await file.delete();
-        }
+      // Delete the file (only on native platforms)
+      if (!kIsWeb && _currentFilePath != null) {
+        await platform.deleteFile(_currentFilePath!);
       }
+      // On web, Blob URL will be garbage collected automatically
 
       _currentFilePath = null;
     } catch (e) {

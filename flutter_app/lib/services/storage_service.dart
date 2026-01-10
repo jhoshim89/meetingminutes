@@ -1,6 +1,10 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meeting_model.dart';
+
+// Platform-specific imports
+import 'storage_service_io.dart' if (dart.library.html) 'storage_service_web.dart' as platform;
 
 /// Upload progress callback
 typedef UploadProgressCallback = void Function(int sent, int total);
@@ -54,14 +58,11 @@ class StorageService {
     UploadProgressCallback? onProgress,
     int maxRetries = 3,
   }) async {
-    final file = File(filePath);
-
-    // Verify file exists
-    if (!await file.exists()) {
-      throw Exception('Audio file not found at: $filePath');
-    }
-
-    final fileSize = await file.length();
+    // Get file bytes and info using platform-specific implementation
+    final fileInfo = await platform.getFileInfo(filePath);
+    final Uint8List fileBytes = fileInfo.bytes;
+    final int fileSize = fileInfo.size;
+    final String fileExtension = fileInfo.extension;
 
     // Validate file size (max 500MB)
     if (fileSize > 500 * 1024 * 1024) {
@@ -78,7 +79,6 @@ class StorageService {
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileExtension = filePath.split('.').last;
     final storagePath = 'users/$userId/meetings/$meetingId/$timestamp.$fileExtension';
 
     Exception? lastError;
@@ -92,10 +92,10 @@ class StorageService {
           await Future.delayed(Duration(seconds: delaySeconds));
         }
 
-        // Upload file
-        final uploadResponse = await _client.storage.from(recordingsBucket).upload(
+        // Upload file bytes (works on both web and native)
+        final uploadResponse = await _client.storage.from(recordingsBucket).uploadBinary(
           storagePath,
-          file,
+          fileBytes,
           fileOptions: FileOptions(
             contentType: _getContentType(fileExtension),
             upsert: false,
@@ -243,6 +243,10 @@ class StorageService {
         return 'audio/aac';
       case 'ogg':
         return 'audio/ogg';
+      case 'webm':
+        return 'audio/webm';
+      case 'opus':
+        return 'audio/opus';
       default:
         return 'audio/mpeg';
     }
