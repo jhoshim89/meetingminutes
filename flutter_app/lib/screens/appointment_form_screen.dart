@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/appointment_provider.dart';
 import '../providers/template_provider.dart';
 import '../models/appointment_model.dart';
+import '../utils/quick_input_parser.dart';
 
 /// Appointment Form Screen for creating/editing appointments
 class AppointmentFormScreen extends StatefulWidget {
@@ -25,6 +26,8 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _tagController = TextEditingController();
+  final _quickInputController = TextEditingController();
+  QuickInputResult? _parsePreview;
 
   late DateTime _selectedDateTime;
   int _durationMinutes = 60;
@@ -78,6 +81,7 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _tagController.dispose();
+    _quickInputController.dispose();
     super.dispose();
   }
 
@@ -108,6 +112,12 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Quick Input Section (only for new appointments)
+            if (!_isEditMode) ...[
+              _buildQuickInputSection(),
+              const SizedBox(height: 16),
+            ],
+
             // Title Field
             TextFormField(
               controller: _titleController,
@@ -517,5 +527,204 @@ class _AppointmentFormScreenState extends State<AppointmentFormScreen> {
     }
     final hours = minutes ~/ 60;
     return '$hours ${hours == 1 ? 'hour' : 'hours'} before';
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Quick Input Section
+  // ─────────────────────────────────────────────────────────────────
+
+  Widget _buildQuickInputSection() {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.flash_on,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '빠른 입력',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _quickInputController,
+              decoration: InputDecoration(
+                hintText: '예: 2/11 2시 집행부 회의',
+                hintStyle: TextStyle(
+                  color: Theme.of(context).hintColor.withOpacity(0.6),
+                  fontSize: 14,
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.auto_fix_high),
+                  tooltip: '파싱',
+                  onPressed: _parseQuickInput,
+                ),
+              ),
+              onChanged: (_) => _parseQuickInput(),
+              onSubmitted: (_) {
+                if (_parsePreview != null) {
+                  _applyQuickInput();
+                }
+              },
+            ),
+            if (_parsePreview != null) ...[
+              const SizedBox(height: 12),
+              _buildParsePreview(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _parseQuickInput() {
+    final input = _quickInputController.text;
+    if (input.isEmpty) {
+      setState(() {
+        _parsePreview = null;
+      });
+      return;
+    }
+
+    final result = QuickInputParser.parse(input);
+    setState(() {
+      _parsePreview = result;
+    });
+  }
+
+  void _applyQuickInput() {
+    if (_parsePreview == null) return;
+
+    setState(() {
+      _titleController.text = _parsePreview!.title;
+      if (_parsePreview!.dateTime != null) {
+        _selectedDateTime = _parsePreview!.dateTime!;
+      }
+
+      // 빠른 입력 필드 초기화
+      _quickInputController.clear();
+      _parsePreview = null;
+    });
+
+    // 제목 필드로 포커스 이동
+    FocusScope.of(context).nextFocus();
+  }
+
+  Widget _buildParsePreview() {
+    final preview = _parsePreview!;
+    final hasAnyInfo = preview.hasDate || preview.hasTime;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: hasAnyInfo
+            ? Colors.green.withOpacity(0.1)
+            : Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: hasAnyInfo
+              ? Colors.green.withOpacity(0.3)
+              : Colors.orange.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasAnyInfo ? Icons.check_circle : Icons.info,
+                size: 16,
+                color: hasAnyInfo ? Colors.green : Colors.orange,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '인식 결과',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: hasAnyInfo ? Colors.green[700] : Colors.orange[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (preview.dateTime != null) ...[
+            _buildPreviewRow(
+              Icons.event,
+              '날짜/시간',
+              DateFormat('M월 d일 (E) HH:mm', 'ko').format(preview.dateTime!),
+            ),
+          ],
+          _buildPreviewRow(
+            Icons.title,
+            '제목',
+            preview.title,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _applyQuickInput,
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('적용하기'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
