@@ -312,40 +312,48 @@ class _MainNavigatorState extends State<MainNavigator> {
     }
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '홈',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        child: SafeArea(
+          top: false,
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            type: BottomNavigationBarType.fixed,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: '홈',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.search),
+                label: '검색',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.mic),
+                label: '녹음',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_today),
+                label: '캘린더',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person),
+                label: '화자',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.settings),
+                label: '설정',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: '검색',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic),
-            label: '녹음',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: '캘린더',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '화자',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: '설정',
-          ),
-        ],
+        ),
       ),
     );
   }
