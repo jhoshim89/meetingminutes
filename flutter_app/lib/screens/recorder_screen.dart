@@ -316,6 +316,9 @@ class _RecorderScreenState extends State<RecorderScreen> {
                       ),
                     ),
                   ],
+
+                  // Bottom padding for navigation bar
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
