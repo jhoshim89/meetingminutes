@@ -351,13 +351,12 @@ class _MainNavigatorState extends State<MainNavigator> {
               ),
             ],
           ),
-          // iOS PWA 홈 인디케이터 영역 확보
-          if (kIsWeb)
-            Container(
-              color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
-                     Theme.of(context).scaffoldBackgroundColor,
-              height: 20,
-            ),
+          // iOS 홈 인디케이터 영역 확보 (모든 플랫폼 적용)
+          Container(
+            color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+                   Theme.of(context).scaffoldBackgroundColor,
+            height: MediaQuery.of(context).padding.bottom,
+          ),
         ],
       ),
     );

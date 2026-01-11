@@ -2,9 +2,10 @@
 
 **Voice Asset MVP** for automated meeting transcription and management.
 
-**Components**: Flutter mobile app (recording, search) + Python PC Worker (STT, speaker diarization)
+**Components**: Flutter Web (PWA) + Python PC Worker (STT, speaker diarization)
 **Timeline**: 3-4 months MVP with 5-10 beta users
 **Tech**: Flutter + Python + Supabase (PostgreSQL + pgvector) + WhisperX + Ollama
+**Environment**: **PWA Only** (No Native iOS/Android builds)
 
 ---
 
@@ -12,7 +13,7 @@
 
 | 디렉토리 | 용도 |
 |---------|------|
-| `flutter_app/` | iOS/Android 앱 (모델, 상태관리, UI 화면) |
+| `flutter_app/` | Flutter Web PWA 소스 (모델, 상태관리, UI 화면) |
 | `pc_worker/` | 파이썬 워커 (오디오 처리, STT, DB 연동) |
 | `task_plan.md` | 개발 로드맵 (5단계, 상세 내용) |
 
@@ -25,7 +26,7 @@
 ```bash
 cd flutter_app
 flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
 **주요 파일**: `lib/main.dart` (진입점), `lib/providers/` (상태관리), `lib/screens/` (UI)
