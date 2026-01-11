@@ -1,8 +1,9 @@
 {
-  "outputStyle": "Explanatory",
   "permissions": {
     "allow": [
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(flutter pub get:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }

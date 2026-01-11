@@ -1,0 +1,30 @@
+# Ignore everything except flutter_app/build/web
+.claude
+.vercel
+data
+logs
+meetingminutes
+models
+pc_worker
+supabase
+temp_audio
+*.md
+*.py
+*.txt
+
+# Flutter app source (keep only build/web)
+flutter_app/.dart_tool
+flutter_app/.idea
+flutter_app/android
+flutter_app/ios
+flutter_app/lib
+flutter_app/linux
+flutter_app/macos
+flutter_app/test
+flutter_app/web
+flutter_app/windows
+flutter_app/build/app.dill*
+flutter_app/build/cache
+flutter_app/build/.last_build_id
+flutter_app/pubspec.*
+flutter_app/*.iml

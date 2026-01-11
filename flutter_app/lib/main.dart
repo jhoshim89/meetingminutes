@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -312,13 +313,10 @@ class _MainNavigatorState extends State<MainNavigator> {
     }
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-        ),
-        child: SafeArea(
-          top: false,
-          child: BottomNavigationBar(
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: (index) {
               setState(() {
@@ -353,7 +351,14 @@ class _MainNavigatorState extends State<MainNavigator> {
               ),
             ],
           ),
-        ),
+          // iOS PWA 홈 인디케이터 영역 확보
+          if (kIsWeb)
+            Container(
+              color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+                     Theme.of(context).scaffoldBackgroundColor,
+              height: 20,
+            ),
+        ],
       ),
     );
   }

@@ -36,7 +36,9 @@ logging.basicConfig(
     level=getattr(logging, LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
+# Use StructuredLogger for meeting event logging support
+from logger import get_logger
+logger = get_logger("pc_worker", level=LOG_LEVEL)
 
 # GPU Configuration
 ENABLE_GPU = os.getenv("ENABLE_GPU", "true").lower() == "true"

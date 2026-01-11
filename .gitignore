@@ -52,3 +52,5 @@ data/
 # ===== ML Models =====
 models/
 temp_audio/
+.vercel
+.env*.local
