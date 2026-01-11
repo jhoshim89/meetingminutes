@@ -589,6 +589,8 @@ class SupabaseService {
   }
 
   /// Create a new appointment
+  /// [status] defaults to 'pending', use 'completed' for recordings
+  /// [meetingId] links to a completed meeting record
   Future<AppointmentModel?> createAppointment({
     required String title,
     String? description,
@@ -599,6 +601,8 @@ class SupabaseService {
     List<String>? tags,
     bool autoRecord = true,
     String? fcmToken,
+    String status = 'pending',
+    String? meetingId,
   }) async {
     try {
       final response = await client.from('appointments').insert({
@@ -610,10 +614,11 @@ class SupabaseService {
         'duration_minutes': durationMinutes,
         'template_id': templateId,
         'tags': tags ?? [],
-        'status': 'pending',
+        'status': status,
         'auto_record': autoRecord,
         'fcm_token': fcmToken,
         'notification_sent': false,
+        'meeting_id': meetingId,
       }).select().single();
 
       return AppointmentModel.fromJson(response);

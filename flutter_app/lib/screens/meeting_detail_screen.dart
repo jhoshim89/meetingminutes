@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/meeting_provider.dart';
+import '../providers/appointment_provider.dart';
 import '../models/meeting_model.dart';
 import '../models/transcript_model.dart';
 
@@ -359,7 +360,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Meeting?'),
         content: const Text(
-          'Are you sure you want to delete this meeting? '
+          'This will permanently delete:\n'
+          '• Audio recording file\n'
+          '• Meeting record and transcripts\n'
+          '• Calendar appointment (if linked)\n\n'
           'This action cannot be undone.',
         ),
         actions: [
@@ -369,17 +373,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              await context.read<MeetingProvider>().deleteMeeting(widget.meetingId);
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Meeting deleted successfully'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+              Navigator.pop(context); // Close dialog first
+              await _performDelete(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
@@ -387,5 +382,71 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _performDelete(BuildContext context) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Deleting meeting...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final meetingProvider = context.read<MeetingProvider>();
+      final appointmentProvider = context.read<AppointmentProvider>();
+
+      final success = await meetingProvider.deleteMeetingComplete(
+        widget.meetingId,
+        appointmentProvider: appointmentProvider,
+      );
+
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (success) {
+          Navigator.pop(context); // Close detail screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meeting deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete: ${meetingProvider.error ?? 'Unknown error'}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting meeting: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/appointment_model.dart';
+import '../models/meeting_model.dart';
 import '../services/supabase_service.dart';
 
 class AppointmentProvider with ChangeNotifier {
@@ -297,6 +298,66 @@ class AppointmentProvider with ChangeNotifier {
       _error = e.toString();
       debugPrint('Delete appointment error: $e');
       notifyListeners();
+      return false;
+    }
+  }
+
+  /// Create appointment from a completed meeting recording
+  Future<AppointmentModel?> createAppointmentFromMeeting({
+    required MeetingModel meeting,
+  }) async {
+    try {
+      final appointment = await _supabaseService.createAppointment(
+        title: meeting.title,
+        scheduledAt: meeting.createdAt,
+        durationMinutes: (meeting.durationSeconds / 60).ceil(),
+        status: 'completed',
+        meetingId: meeting.id,
+        autoRecord: false,
+      );
+
+      if (appointment != null) {
+        // Insert in sorted order by scheduled time
+        final insertIndex = _appointments.indexWhere(
+          (a) => a.scheduledAt.isAfter(appointment.scheduledAt),
+        );
+
+        if (insertIndex == -1) {
+          _appointments.add(appointment);
+        } else {
+          _appointments.insert(insertIndex, appointment);
+        }
+
+        // Update today's appointments if applicable
+        if (appointment.isToday) {
+          _todayAppointments.add(appointment);
+          _todayAppointments.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+        }
+      }
+
+      notifyListeners();
+      return appointment;
+    } catch (e) {
+      debugPrint('Create appointment from meeting error: $e');
+      return null;
+    }
+  }
+
+  /// Delete appointment by meeting ID
+  Future<bool> deleteAppointmentByMeetingId(String meetingId) async {
+    try {
+      // Find appointment with this meeting ID
+      final appointmentIndex = _appointments.indexWhere(
+        (a) => a.meetingId == meetingId,
+      );
+
+      if (appointmentIndex != -1) {
+        final appointment = _appointments[appointmentIndex];
+        return await deleteAppointment(appointment.id);
+      }
+      return true; // No appointment to delete
+    } catch (e) {
+      debugPrint('Delete appointment by meeting ID error: $e');
       return false;
     }
   }

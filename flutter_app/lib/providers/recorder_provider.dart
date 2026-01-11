@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/meeting_model.dart';
 import '../services/recording_service.dart';
 import '../services/supabase_service.dart';
+import '../services/wake_lock_service.dart';
 import 'upload_provider.dart';
 import 'appointment_provider.dart';
 
@@ -12,6 +13,7 @@ class RecorderProvider with ChangeNotifier {
   final RecordingService _recordingService = RecordingService();
   final SupabaseService _supabaseService = SupabaseService();
   final UploadProvider _uploadProvider = UploadProvider();
+  final WakeLockService _wakeLockService = WakeLockService();
 
   RecorderState _state = RecorderState.idle;
   Duration _duration = Duration.zero;
@@ -105,6 +107,9 @@ class RecorderProvider with ChangeNotifier {
         debugPrint('Marked appointment $_currentAppointmentId as recording');
       }
 
+      // Enable wake lock to keep screen on during recording
+      await _wakeLockService.enable();
+
       // Start recording
       await _recordingService.startRecording();
       _state = RecorderState.recording;
@@ -146,6 +151,9 @@ class RecorderProvider with ChangeNotifier {
     _state = RecorderState.processing;
     notifyListeners();
 
+    // Release wake lock when recording stops
+    await _wakeLockService.disable();
+
     try {
       // Stop recording and get file path
       final filePath = await _recordingService.stopRecording();
@@ -171,13 +179,22 @@ class RecorderProvider with ChangeNotifier {
       _state = RecorderState.completed;
       _error = null;
 
-      // Mark appointment as completed if linked
+      // Mark appointment as completed if linked, or create new appointment for calendar
       if (_currentAppointmentId != null && appointmentProvider != null) {
+        // 기존 예약된 일정에서 녹음 시작한 경우 - 완료 처리
         await appointmentProvider.markAsCompleted(
           _currentAppointmentId!,
           meetingId: meeting.id,
         );
         debugPrint('Marked appointment $_currentAppointmentId as completed with meeting ${meeting.id}');
+      } else if (appointmentProvider != null) {
+        // 새로 녹음한 경우 - 캘린더에 자동 추가
+        final appointment = await appointmentProvider.createAppointmentFromMeeting(
+          meeting: meeting,
+        );
+        if (appointment != null) {
+          debugPrint('Created calendar entry for meeting ${meeting.id}');
+        }
       }
 
       notifyListeners();
@@ -192,6 +209,9 @@ class RecorderProvider with ChangeNotifier {
   }
 
   Future<void> cancelRecording() async {
+    // Release wake lock when recording is cancelled
+    await _wakeLockService.disable();
+
     try {
       await _recordingService.cancelRecording();
       _state = RecorderState.idle;
@@ -209,6 +229,9 @@ class RecorderProvider with ChangeNotifier {
   }
 
   void reset() {
+    // Ensure wake lock is released on reset
+    _wakeLockService.disable();
+
     _recordingService.reset();
     _state = RecorderState.idle;
     _duration = Duration.zero;
@@ -229,6 +252,9 @@ class RecorderProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    // Release wake lock on dispose
+    _wakeLockService.disable();
+
     _durationSubscription?.cancel();
     _amplitudeSubscription?.cancel();
     _stateSubscription?.cancel();

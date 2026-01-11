@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../providers/appointment_provider.dart';
 import '../models/appointment_model.dart';
+import '../utils/quick_input_parser.dart';
 
 /// Scheduler Screen for managing meeting appointments
 ///
@@ -166,6 +167,17 @@ class _SchedulerScreenState extends State<SchedulerScreen> {
   }
 
   void _showAppointmentDetails(AppointmentModel appointment) {
+    // If appointment has recording, navigate to meeting detail screen
+    if (appointment.meetingId != null) {
+      Navigator.pushNamed(
+        context,
+        '/meeting_detail',
+        arguments: appointment.meetingId,
+      );
+      return;
+    }
+
+    // Otherwise show appointment details bottom sheet
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -277,12 +289,45 @@ class _AppointmentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      appointment.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            appointment.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        // 녹음됨 배지
+                        if (appointment.meetingId != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.mic, size: 14, color: Colors.green),
+                                SizedBox(width: 4),
+                                Text(
+                                  '녹음됨',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     if (appointment.description != null && appointment.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -344,9 +389,40 @@ class _AppointmentDetailsSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            appointment.title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  appointment.title,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+              // 녹음됨 배지
+              if (appointment.meetingId != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.green),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.mic, size: 16, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text(
+                        '녹음됨',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
           _DetailRow(
@@ -374,13 +450,39 @@ class _AppointmentDetailsSheet extends StatelessWidget {
             Text(appointment.description!),
           ],
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+          // 녹음된 회의로 이동 버튼 또는 닫기 버튼
+          if (appointment.meetingId != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('View Meeting Recording'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(
+                    context,
+                    '/meeting_detail',
+                    arguments: appointment.meetingId,
+                  );
+                },
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ),
+          ] else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ),
         ],
       ),
     );
@@ -444,18 +546,37 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
   late DateTime _selectedDateTime;
   int _durationMinutes = 60;
   int _reminderMinutes = 15;
+  QuickInputResult? _parsedResult;
 
   @override
   void initState() {
     super.initState();
     _selectedDateTime = widget.selectedDate.add(const Duration(hours: 9));
+    _titleController.addListener(_onTitleChanged);
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_onTitleChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _onTitleChanged() {
+    final input = _titleController.text;
+    if (input.isEmpty) {
+      setState(() => _parsedResult = null);
+      return;
+    }
+
+    final result = QuickInputParser.parse(input);
+    setState(() {
+      _parsedResult = result;
+      if (result.dateTime != null) {
+        _selectedDateTime = result.dateTime!;
+      }
+    });
   }
 
   @override
@@ -483,6 +604,7 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Title',
+                  hintText: '예: 내일 2시 팀미팅, 9:30 회의',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
@@ -492,6 +614,45 @@ class _AddAppointmentSheetState extends State<_AddAppointmentSheet> {
                   return null;
                 },
               ),
+              // 파싱 결과 미리보기
+              if (_parsedResult != null && (_parsedResult!.hasDate || _parsedResult!.hasTime))
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_fix_high, color: Colors.deepPurple, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '인식됨: ${DateFormat('M월 d일 (E) HH:mm', 'ko').format(_selectedDateTime)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            if (_parsedResult!.title != '새 일정')
+                              Text(
+                                '제목: ${_parsedResult!.title}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 16),
               ListTile(
                 leading: const Icon(Icons.calendar_today),

@@ -4,6 +4,7 @@ import '../models/meeting_model.dart';
 import '../models/transcript_model.dart';
 import '../services/supabase_service.dart';
 import '../services/realtime_service.dart';
+import 'appointment_provider.dart';
 
 class MeetingProvider with ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService();
@@ -211,6 +212,50 @@ class MeetingProvider with ChangeNotifier {
       _error = e.toString();
       debugPrint('Delete meeting error: $e');
       notifyListeners();
+    }
+  }
+
+  /// Delete meeting with all associated data (audio, appointment)
+  Future<bool> deleteMeetingComplete(
+    String meetingId, {
+    AppointmentProvider? appointmentProvider,
+  }) async {
+    try {
+      // 1. Get meeting details first (for audio URL)
+      final meeting = await _supabaseService.getMeetingById(meetingId);
+
+      // 2. Delete audio from storage if exists
+      if (meeting.audioUrl != null && meeting.audioUrl!.isNotEmpty) {
+        try {
+          await _supabaseService.deleteAudio(meeting.audioUrl!);
+          debugPrint('Deleted audio file for meeting $meetingId');
+        } catch (e) {
+          debugPrint('Failed to delete audio: $e');
+          // Continue with deletion even if audio deletion fails
+        }
+      }
+
+      // 3. Delete meeting record (transcripts cascade via DB)
+      await _supabaseService.deleteMeeting(meetingId);
+
+      // 4. Delete associated appointment if provider available
+      if (appointmentProvider != null) {
+        await appointmentProvider.deleteAppointmentByMeetingId(meetingId);
+      }
+
+      // 5. Update local state
+      _meetings.removeWhere((m) => m.id == meetingId);
+      if (_currentMeeting?.id == meetingId) {
+        _currentMeeting = null;
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Delete meeting complete error: $e');
+      notifyListeners();
+      return false;
     }
   }
 
