@@ -1,16 +1,59 @@
-# Implementation Plan - 프로젝트 개발 환경 명시 (PWA Only)
+# Implementation Plan - 임시 파일 정리 (Cleanup)
 
 ## 문제 정의
-사용자가 프로젝트의 개발 범위가 '네이티브 앱(iOS/Android)'이 아닌 'PWA (Progressive Web App)' 전용임을 명확히 하고자 합니다. 현재 `CLAUDE.md` 등 문서에는 모바일 앱(iOS/Android)으로 기술되어 있어 혼동의 소지가 있습니다.
+프로젝트 루트 디렉토리에 이전 작업의 결과물로 생성된 다수의 Markdown 보고서 및 요약 파일들이 쌓여 있어 디렉토리 구조가 복잡해 보입니다.
 
 ## 목표
-- `CLAUDE.md` 파일에 프로젝트가 **PWA 전용**임을 명시합니다.
-- 불필요한 네이티브 앱 관련 서술을 수정하여 AI 및 다른 개발자가 혼동하지 않도록 합니다.
+- 더 이상 필요하지 않은 임시 파일 및 이전 작업 리포트를 삭제하여 프로젝트 루트를 정리합니다.
+- `CLAUDE.md`, `task_plan.md` 등 프로젝트 유지에 필수적인 문서는 보존합니다.
 
 ## Proposed Changes
-### `d:\Productions\meetingminutes\CLAUDE.md`
-- "iOS/Android 앱"이라는 표현을 "Flutter Web (PWA)"로 모든 곳에서 수정합니다.
-- **PWA Only** 규칙을 최상단 또는 눈에 띄는 곳에 추가합니다.
+### 삭제 대상 파일
+다음 파일들을 삭제합니다:
+- `CHANGES_SUMMARY.md`
+- `FCM_IMPLEMENTATION_SUMMARY.md`
+- `FCM_SETUP.md`
+- `IMPLEMENTATION_COMPLETE.txt`
+- `IMPLEMENTATION_SUMMARY.md`
+- `QUICK_REFERENCE.md`
+- `QUICK_START_FCM.md`
+- `SPEAKER_MANAGER_IMPLEMENTATION.md`
+- `SPEAKER_MANAGER_INTEGRATION_GUIDE.md`
+- `TASK_2.3_IMPLEMENTATION_REPORT.md`
+- `TASK_3_1_COMPLETION_SUMMARY.md`
+- `nul` (빈 파일로 보임)
+
+### 보존 (삭제하지 않음)
+- `CLAUDE.md` (프로젝트 핵심 문서)
+- `task_plan.md` (전체 로드맵)
+- `build.sh`, `vercel.json` (배포 설정)
+- `.env*`, `.git*` (설정 파일)
+- **Current Artifacts**: `implementation_plan.md`, `task.md`, `walkthrough.md` (현재 세션용 - 완료 후 삭제 원하시면 말씀해주세요)
+
 
 ## Verification Plan
-- `CLAUDE.md` 파일 내용을 확인하여 "PWA Only" 문구가 정확히 포함되었는지 검증합니다.
+- 파일 삭제 명령 실행 후 `ls`를 통해 삭제 여부 확인.
+
+# [Emergent Task] Search & Database Schema Restoration
+## 문제 정의
+- 사용자 확인 결과 ("하나도 생성안되어있음") 및 코드 분석 결과, 앱 구동에 필수적인 `meetings`, `transcripts`, `speakers` 테이블 및 검색 관련 함수(`hybrid_search_chunks_simple`)를 정의하는 Database Migration 파일이 `supabase/migrations`에 존재하지 않습니다.
+- 이로 인해 검색 탭 진입 시 데이터가 없거나 에러가 발생합니다.
+
+## 목표
+- 소실된(또는 누락된) Database Schema를 복원합니다. `SupabaseService` 코드에서 참조하는 모든 테이블과 함수를 포함하는 Migration SQL 파일을 생성합니다.
+
+## Proposed Changes
+### `d:\Productions\meetingminutes\supabase\migrations\20260111_init_schema.sql` [NEW]
+- **Extension**: `vector` 활성화 (Embeddings용)
+- **Tables**:
+    - `meetings`: 회의 메타데이터
+    - `speakers`: 화자 정보
+    - `transcripts`: 전체 스크립트
+    - `transcript_chunks`: 검색용 청크 (Vector Embedding 포함)
+    - `templates`: 회의 템플릿
+- **Functions**:
+    - `hybrid_search_chunks_simple`: 키워드 + 시맨틱 하이브리드 검색 RPC (또는 초기 텍스트 검색 버전)
+
+## Verification Plan (Search)
+- SQL 파일 생성 후 사용자가 Supabase 대시보드에서 쿼리를 실행하거나 로컬에서 마이그레이션을 적용합니다.
+- 앱에서 검색 탭 진입 시 "검색 결과 없음"이 정상적으로 뜨는지(에러 없이) 확인합니다.
