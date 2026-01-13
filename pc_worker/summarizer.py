@@ -25,20 +25,15 @@ from models import TranscriptSegment, MeetingSummary
 from exceptions import SummaryGenerationError
 
 try:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain.llms import Ollama
-    from langchain.callbacks import StreamingStdOutCallbackHandler
-except ImportError:
-    try:
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-        from langchain_community.llms import Ollama
-        from langchain.callbacks import StreamingStdOutCallbackHandler
-    except ImportError:
-        # Fallback if LangChain modules not available
-        logger.warning("LangChain modules not fully available, will use basic implementation")
-        RecursiveCharacterTextSplitter = None
-        Ollama = None
-        StreamingStdOutCallbackHandler = None
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain_community.llms import Ollama
+    from langchain_core.callbacks import StreamingStdOutCallbackHandler
+except ImportError as e:
+    # Fallback if LangChain modules not available
+    logger.warning(f"LangChain modules not fully available: {e}, will use basic implementation")
+    RecursiveCharacterTextSplitter = None
+    Ollama = None
+    StreamingStdOutCallbackHandler = None
 
 
 class OllamaSummarizer:
@@ -69,7 +64,7 @@ class OllamaSummarizer:
 
 요약은 다음 형식으로 작성해주세요:
 [요약]
-{요약 내용}
+(요약 내용을 작성)
 
 [핵심 포인트]
 - 포인트1
@@ -241,9 +236,9 @@ class OllamaSummarizer:
             logger.error(f"Error chunking transcript: {e}")
             raise SummaryGenerationError(f"Cannot chunk transcript: {e}")
 
-    async def _call_ollama_sync(self, prompt: str) -> str:
+    async def _call_ollama_async(self, prompt: str) -> str:
         """
-        Call Ollama model synchronously (in thread)
+        Call Ollama model directly via aiohttp (bypasses LangChain encoding issues)
 
         Args:
             prompt: Input prompt
@@ -251,19 +246,43 @@ class OllamaSummarizer:
         Returns:
             Model response
         """
+        import aiohttp
+        import json
+
         try:
-            loop = asyncio.get_event_loop()
-            response = await asyncio.wait_for(
-                loop.run_in_executor(
-                    self.executor,
-                    lambda: self.ollama_client(prompt)
-                ),
-                timeout=self.timeout
-            )
-            return response
+            payload = {
+                "model": self.model_name,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "top_k": 40
+                }
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.ollama_url}/api/generate",
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise SummaryGenerationError(f"Ollama API error {response.status}: {error_text}")
+
+                    # Explicitly decode as UTF-8 for Korean support
+                    response_bytes = await response.read()
+                    response_text = response_bytes.decode('utf-8')
+                    data = json.loads(response_text)
+                    return data.get("response", "")
+
         except asyncio.TimeoutError:
             logger.error(f"Ollama call timeout after {self.timeout} seconds")
             raise SummaryGenerationError(f"Ollama timeout (>{self.timeout}s)")
+        except aiohttp.ClientError as e:
+            logger.error(f"Ollama connection error: {e}")
+            raise SummaryGenerationError(f"Ollama connection failed: {e}")
         except Exception as e:
             logger.error(f"Error calling Ollama: {e}")
             raise SummaryGenerationError(f"Ollama call failed: {e}")
@@ -289,7 +308,7 @@ class OllamaSummarizer:
 간단한 요약만 제공하세요 (100-300자):"""
 
         try:
-            summary = await self._call_ollama_sync(prompt)
+            summary = await self._call_ollama_async(prompt)
             return summary.strip()
         except Exception as e:
             logger.error(f"Failed to summarize chunk: {e}")
@@ -337,7 +356,7 @@ class OllamaSummarizer:
 
 최종 요약 (300-500자):"""
 
-            final_summary = await self._call_ollama_sync(reduce_prompt)
+            final_summary = await self._call_ollama_async(reduce_prompt)
             return final_summary.strip()
 
         except Exception as e:
@@ -367,7 +386,7 @@ class OllamaSummarizer:
 - 핵심 포인트 1
 - 핵심 포인트 2"""
 
-            response = await self._call_ollama_sync(prompt)
+            response = await self._call_ollama_async(prompt)
 
             # Parse response into list
             points = [
@@ -403,7 +422,7 @@ class OllamaSummarizer:
 
 액션 아이템 (최대 5개):"""
 
-            response = await self._call_ollama_sync(prompt)
+            response = await self._call_ollama_async(prompt)
 
             # Parse response into list
             items = [
