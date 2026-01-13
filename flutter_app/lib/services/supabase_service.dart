@@ -375,6 +375,36 @@ class SupabaseService {
     }
   }
 
+  /// Update transcript speaker assignment
+  /// Allows users to reassign a transcript line to a different speaker
+  Future<TranscriptModel> updateTranscriptSpeaker(
+    String transcriptId, {
+    String? speakerId,
+    String? speakerName,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+
+      // Allow setting speakerId to null (unknown speaker)
+      updates['speaker_id'] = speakerId;
+
+      if (speakerName != null) {
+        updates['speaker_name'] = speakerName;
+      }
+
+      final response = await client
+          .from('transcripts')
+          .update(updates)
+          .eq('id', transcriptId)
+          .select()
+          .single();
+
+      return TranscriptModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to update transcript speaker: $e');
+    }
+  }
+
   // ====================
   // STORAGE
   // ====================

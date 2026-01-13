@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/meeting_provider.dart';
 import '../providers/appointment_provider.dart';
+import '../providers/speaker_provider.dart';
 import '../models/meeting_model.dart';
 import '../models/meeting_summary_model.dart';
 import '../models/transcript_model.dart';
+import '../widgets/speaker_selection_bottom_sheet.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
   final String meetingId;
@@ -482,11 +484,31 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    transcript.displaySpeaker,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                  // Tappable speaker name for reassignment
+                  InkWell(
+                    onTap: () => _showSpeakerSelectionBottomSheet(transcript),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            transcript.displaySpeaker,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   Text(
@@ -511,6 +533,17 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showSpeakerSelectionBottomSheet(TranscriptModel transcript) {
+    SpeakerSelectionBottomSheet.show(
+      context,
+      transcript: transcript,
+      onSpeakerChanged: () {
+        // Refresh transcripts to reflect the change
+        context.read<MeetingProvider>().fetchTranscripts(widget.meetingId);
+      },
     );
   }
 

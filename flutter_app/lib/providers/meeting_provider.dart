@@ -291,6 +291,36 @@ class MeetingProvider with ChangeNotifier {
     }
   }
 
+  /// Update speaker assignment for a transcript line
+  /// Returns true if successful, false otherwise
+  Future<bool> updateTranscriptSpeaker(
+    String transcriptId, {
+    required String? speakerId,
+    required String? speakerName,
+  }) async {
+    try {
+      final updatedTranscript = await _supabaseService.updateTranscriptSpeaker(
+        transcriptId,
+        speakerId: speakerId,
+        speakerName: speakerName,
+      );
+
+      // Update in local list
+      final index = _transcripts.indexWhere((t) => t.id == transcriptId);
+      if (index != -1) {
+        _transcripts[index] = updatedTranscript;
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Update transcript speaker error: $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clearCurrentMeeting() {
     _currentMeeting = null;
     _currentSummary = null;
