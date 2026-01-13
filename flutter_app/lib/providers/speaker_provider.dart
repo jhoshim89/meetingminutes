@@ -215,6 +215,66 @@ class SpeakerProvider with ChangeNotifier {
     }
   }
 
+
+  /// Get similar speakers based on embedding similarity
+  /// Returns list of (SpeakerModel, similarity score) pairs sorted by similarity
+  List<({SpeakerModel speaker, double similarity})> getSimilarSpeakers(
+    String speakerId, {
+    int maxResults = 3,
+    double minSimilarity = 0.5,
+  }) {
+    try {
+      // Find the source speaker
+      final sourceSpeaker = _speakers.firstWhere(
+        (s) => s.id == speakerId,
+        orElse: () => SpeakerModel(
+          id: '',
+          sampleCount: 0,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          isRegistered: false,
+        ),
+      );
+
+      if (sourceSpeaker.id.isEmpty || sourceSpeaker.embeddings == null) {
+        return [];
+      }
+
+      final sourceEmbedding = sourceSpeaker.embeddings!;
+
+      // Get all registered speakers with embeddings (excluding source)
+      final candidates = _speakers
+          .where((s) =>
+              s.isRegistered &&
+              s.embeddings != null &&
+              s.id != speakerId)
+          .toList();
+
+      if (candidates.isEmpty) return [];
+
+      // Calculate similarities
+      final results = <({SpeakerModel speaker, double similarity})>[];
+
+      for (final candidate in candidates) {
+        final similarity = _calculateCosineSimilarity(
+          sourceEmbedding,
+          candidate.embeddings!,
+        );
+
+        if (similarity >= minSimilarity) {
+          results.add((speaker: candidate, similarity: similarity));
+        }
+      }
+
+      // Sort by similarity (descending) and limit
+      results.sort((a, b) => b.similarity.compareTo(a.similarity));
+
+      return results.take(maxResults).toList();
+    } catch (e) {
+      debugPrint('getSimilarSpeakers failed: $e');
+      return [];
+    }
+  }
+
   /// Get the audio sample cache (for testing)
   Map<String, String> get audioSampleCache => _audioSampleCache;
 
