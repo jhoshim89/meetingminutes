@@ -1,7 +1,8 @@
 # PyTorch with CUDA 12.1 (GPU acceleration)
+# Note: pyannote.audio 3.x requires torchaudio<=2.5.x for AudioMetaData compatibility
 --extra-index-url https://download.pytorch.org/whl/cu121
-torch>=2.6.0
-torchaudio>=2.6.0
+torch==2.5.1
+torchaudio==2.5.1
 
 python-dotenv>=1.0.0
 supabase>=2.4.0

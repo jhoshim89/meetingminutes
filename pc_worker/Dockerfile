@@ -1,5 +1,5 @@
-# PC Worker Dockerfile with CUDA support
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+# PC Worker Dockerfile with CUDA + cuDNN support
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
 
 # Prevent interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive
