@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/meeting_provider.dart';
 import '../providers/appointment_provider.dart';
 import '../models/meeting_model.dart';
+import '../models/meeting_summary_model.dart';
 import '../models/transcript_model.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
@@ -33,88 +34,114 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meeting Details'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              final provider = context.read<MeetingProvider>();
-              provider.fetchMeetingById(widget.meetingId);
-              provider.fetchTranscripts(widget.meetingId);
-            },
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Meeting Details'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Summary'),
+              Tab(text: 'Transcript'),
+            ],
           ),
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                final provider = context.read<MeetingProvider>();
+                provider.fetchMeetingById(widget.meetingId);
+                provider.fetchTranscripts(widget.meetingId);
+              },
+            ),
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete Meeting', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _showDeleteDialog(context);
+                }
+              },
+            ),
+          ],
+        ),
+        body: Consumer<MeetingProvider>(
+          builder: (context, provider, child) {
+            if (provider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (provider.error != null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete Meeting', style: TextStyle(color: Colors.red)),
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Error: ${provider.error}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        provider.fetchMeetingById(widget.meetingId);
+                        provider.fetchTranscripts(widget.meetingId);
+                      },
+                      child: const Text('Retry'),
+                    ),
                   ],
                 ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'delete') {
-                _showDeleteDialog(context);
-              }
-            },
-          ),
+              );
+            }
+
+            final meeting = provider.currentMeeting;
+            if (meeting == null) {
+              return const Center(child: Text('Meeting not found'));
+            }
+
+            return TabBarView(
+              children: [
+                _buildSummaryTab(meeting, provider.currentSummary),
+                _buildTranscriptTab(provider.transcripts),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryTab(MeetingModel meeting, MeetingSummaryModel? summaryData) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMeetingHeader(meeting),
+          const SizedBox(height: 24),
+          if (summaryData != null)
+            _buildDetailedSummary(summaryData)
+          else if (meeting.summary != null && meeting.summary!.isNotEmpty)
+            _buildSimpleSummary(meeting.summary!)
+          else
+             _buildEmptySummaryState(),
         ],
       ),
-      body: Consumer<MeetingProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+  }
 
-          if (provider.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${provider.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      provider.fetchMeetingById(widget.meetingId);
-                      provider.fetchTranscripts(widget.meetingId);
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final meeting = provider.currentMeeting;
-          if (meeting == null) {
-            return const Center(child: Text('Meeting not found'));
-          }
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMeetingHeader(meeting),
-                const SizedBox(height: 24),
-                if (meeting.summary != null) ...[
-                  _buildSummarySection(meeting.summary!),
-                  const SizedBox(height: 24),
-                ],
-                _buildTranscriptSection(provider.transcripts),
-              ],
-            ),
-          );
-        },
-      ),
+  Widget _buildTranscriptTab(List<TranscriptModel> transcripts) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: _buildTranscriptSection(transcripts),
     );
   }
 
@@ -213,17 +240,62 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     );
   }
 
-  Widget _buildSummarySection(String summary) {
+  Widget _buildDetailedSummary(MeetingSummaryModel summaryData) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Summary',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        _buildSectionTitle('Executive Summary'),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              summaryData.summary,
+              style: TextStyle(
+                color: Colors.grey[800],
+                fontSize: 15,
+                height: 1.6,
+              ),
+            ),
           ),
         ),
+        const SizedBox(height: 24),
+        if (summaryData.keyPoints.isNotEmpty) ...[
+          _buildSectionTitle('Key Points'),
+          const SizedBox(height: 8),
+          ...summaryData.keyPoints.map((point) => _buildBulletPoint(point)).toList(),
+          const SizedBox(height: 24),
+        ],
+        if (summaryData.actionItems.isNotEmpty) ...[
+          _buildSectionTitle('Action Items'),
+          const SizedBox(height: 8),
+          ...summaryData.actionItems.map((item) => _buildActionItem(item)).toList(),
+          const SizedBox(height: 24),
+        ],
+        if (summaryData.topics.isNotEmpty) ...[
+          _buildSectionTitle('Topics'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: summaryData.topics.map((topic) => Chip(
+              label: Text(topic),
+              backgroundColor: Colors.blue.withOpacity(0.1),
+              labelStyle: const TextStyle(color: Colors.blue),
+            )).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSimpleSummary(String summary) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Summary'),
         const SizedBox(height: 12),
         Card(
           elevation: 2,
@@ -243,18 +315,106 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     );
   }
 
+  Widget _buildEmptySummaryState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            Icon(Icons.summarize_outlined, size: 48, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              'No summary available yet',
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    );
+  }
+
+  Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Icon(Icons.circle, size: 6, color: Colors.blue),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[800],
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem(String text) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: Colors.grey[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(Icons.check_box_outline_blank, color: Colors.blue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[800],
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummarySection(String summary) {
+    // Deprecated - kept for reference or removal
+    return Container();
+  }
+
   Widget _buildTranscriptSection(List<TranscriptModel> transcripts) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Transcript',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
         if (transcripts.isEmpty)
           Card(
             elevation: 2,

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/meeting_model.dart';
+import '../models/meeting_summary_model.dart';
 import '../models/speaker_model.dart';
 import '../models/transcript_model.dart';
 import '../models/search_result_model.dart';
@@ -161,6 +162,23 @@ class SupabaseService {
           .toList();
     } catch (e) {
       throw Exception('Failed to search meetings: $e');
+    }
+  }
+
+  Future<MeetingSummaryModel?> getMeetingSummary(String meetingId) async {
+    try {
+      final response = await client
+          .from('meeting_summaries')
+          .select()
+          .eq('meeting_id', meetingId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return MeetingSummaryModel.fromJson(response);
+    } catch (e) {
+      print('Error fetching summary: $e');
+      return null;
     }
   }
 

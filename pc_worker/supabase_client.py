@@ -20,7 +20,7 @@ from models import (
     Transcript,
     Speaker,
     MeetingSummary,
-    Template
+    Template,
 )
 from exceptions import (
     SupabaseConnectionError,
@@ -28,7 +28,7 @@ from exceptions import (
     SupabaseQueryError,
     SupabaseStorageError,
     AudioDownloadError,
-    RetryExhaustedError
+    RetryExhaustedError,
 )
 from utils import retry_with_backoff
 
@@ -39,7 +39,7 @@ class SupabaseClient:
     Implements retry logic and proper error handling
     """
 
-    _instance: Optional['SupabaseClient'] = None
+    _instance: Optional["SupabaseClient"] = None
     _client: Optional[Client] = None
 
     def __new__(cls):
@@ -81,10 +81,10 @@ class SupabaseClient:
         """
         try:
             response = await asyncio.to_thread(
-                lambda: self.client.table('meetings')
-                .select('*')
-                .eq('status', MeetingStatus.PENDING.value)
-                .order('created_at', desc=False)
+                lambda: self.client.table("meetings")
+                .select("*")
+                .eq("status", MeetingStatus.PENDING.value)
+                .order("created_at", desc=False)
                 .limit(limit)
                 .execute()
             )
@@ -124,9 +124,9 @@ class SupabaseClient:
         """
         try:
             response = await asyncio.to_thread(
-                lambda: self.client.table('meetings')
-                .select('*')
-                .eq('id', meeting_id)
+                lambda: self.client.table("meetings")
+                .select("*")
+                .eq("id", meeting_id)
                 .single()
                 .execute()
             )
@@ -148,7 +148,7 @@ class SupabaseClient:
         meeting_id: str,
         status: MeetingStatus,
         error_message: Optional[str] = None,
-        processed_by: Optional[str] = None
+        processed_by: Optional[str] = None,
     ) -> bool:
         """
         Update meeting status
@@ -167,20 +167,20 @@ class SupabaseClient:
         """
         try:
             update_data = {
-                'status': status.value,
-                'updated_at': datetime.now().isoformat()
+                "status": status.value,
+                "updated_at": datetime.now().isoformat(),
             }
 
             if error_message is not None:
-                update_data['error_message'] = error_message
+                update_data["error_message"] = error_message
 
             if processed_by is not None:
-                update_data['processed_by'] = processed_by
+                update_data["processed_by"] = processed_by
 
             await asyncio.to_thread(
-                lambda: self.client.table('meetings')
+                lambda: self.client.table("meetings")
                 .update(update_data)
-                .eq('id', meeting_id)
+                .eq("id", meeting_id)
                 .execute()
             )
 
@@ -194,12 +194,7 @@ class SupabaseClient:
             logger.error(f"Unexpected error updating meeting status: {e}")
             raise SupabaseQueryError(f"Unexpected error: {e}")
 
-
-    async def update_meeting_tags(
-        self,
-        meeting_id: str,
-        tags: List[str]
-    ) -> bool:
+    async def update_meeting_tags(self, meeting_id: str, tags: List[str]) -> bool:
         """
         Update meeting tags
 
@@ -214,15 +209,12 @@ class SupabaseClient:
             SupabaseQueryError: If update fails
         """
         try:
-            update_data = {
-                'tags': tags,
-                'updated_at': datetime.now().isoformat()
-            }
+            update_data = {"tags": tags, "updated_at": datetime.now().isoformat()}
 
             await asyncio.to_thread(
-                lambda: self.client.table('meetings')
+                lambda: self.client.table("meetings")
                 .update(update_data)
-                .eq('id', meeting_id)
+                .eq("id", meeting_id)
                 .execute()
             )
 
@@ -258,8 +250,7 @@ class SupabaseClient:
             try:
                 # Generate signed URL from storage path
                 url = await self.get_storage_signed_url(
-                    bucket='meeting-audio',
-                    path=meeting.audio_storage_path
+                    bucket="recordings", path=meeting.audio_storage_path
                 )
                 return url
             except Exception as e:
@@ -270,10 +261,7 @@ class SupabaseClient:
 
     @retry_with_backoff(max_attempts=3, initial_delay=1.0)
     async def get_storage_signed_url(
-        self,
-        bucket: str,
-        path: str,
-        expires_in: int = 3600
+        self, bucket: str, path: str, expires_in: int = 3600
     ) -> str:
         """
         Get signed URL for file in Supabase Storage
@@ -291,13 +279,13 @@ class SupabaseClient:
         """
         try:
             response = await asyncio.to_thread(
-                lambda: self.client.storage
-                .from_(bucket)
-                .create_signed_url(path, expires_in)
+                lambda: self.client.storage.from_(bucket).create_signed_url(
+                    path, expires_in
+                )
             )
 
-            if response and 'signedURL' in response:
-                return response['signedURL']
+            if response and "signedURL" in response:
+                return response["signedURL"]
             else:
                 raise SupabaseStorageError("No signed URL in response")
 
@@ -306,10 +294,7 @@ class SupabaseClient:
             raise SupabaseStorageError(f"Failed to create signed URL: {e}")
 
     async def download_audio_file(
-        self,
-        meeting_id: str,
-        url: str,
-        destination: Path
+        self, meeting_id: str, url: str, destination: Path
     ) -> Path:
         """
         Download audio file from URL to local path
@@ -330,14 +315,20 @@ class SupabaseClient:
 
             # If URL is a storage path (not http/https), generate signed URL
             download_url = url
-            if not url.startswith('http'):
+            if not url.startswith("http"):
                 logger.info(f"Generating signed URL for storage path: {url}")
                 try:
                     # Generate signed URL from Supabase Storage (1 hour expiry)
-                    signed_result = self.client.storage.from_('recordings').create_signed_url(url, 3600)
-                    download_url = signed_result.get('signedUrl') or signed_result.get('signedURL')
+                    signed_result = self.client.storage.from_(
+                        "recordings"
+                    ).create_signed_url(url, 3600)
+                    download_url = signed_result.get("signedUrl") or signed_result.get(
+                        "signedURL"
+                    )
                     if not download_url:
-                        raise AudioDownloadError(f"Failed to generate signed URL for: {url}")
+                        raise AudioDownloadError(
+                            f"Failed to generate signed URL for: {url}"
+                        )
                     logger.info(f"Generated signed URL successfully")
                 except Exception as e:
                     logger.error(f"Failed to generate signed URL: {e}")
@@ -351,7 +342,7 @@ class SupabaseClient:
                         )
 
                     # Download in chunks to handle large files
-                    with open(destination, 'wb') as f:
+                    with open(destination, "wb") as f:
                         async for chunk in response.content.iter_chunked(8192):
                             f.write(chunk)
 
@@ -375,11 +366,7 @@ class SupabaseClient:
             raise AudioDownloadError(f"Unexpected error: {e}")
 
     @retry_with_backoff(max_attempts=3, initial_delay=1.0)
-    async def save_transcript(
-        self,
-        meeting_id: str,
-        transcript: Transcript
-    ) -> bool:
+    async def save_transcript(self, meeting_id: str, transcript: Transcript) -> bool:
         """
         Save transcript segments to database
 
@@ -398,19 +385,21 @@ class SupabaseClient:
             segments_data = []
             for segment in transcript.segments:
                 segment_dict = segment.dict()
-                segment_dict['meeting_id'] = meeting_id
-                segment_dict['created_at'] = datetime.now().isoformat()
+                segment_dict["meeting_id"] = meeting_id
+                segment_dict["created_at"] = datetime.now().isoformat()
                 segments_data.append(segment_dict)
 
             # Insert segments in batches
             if segments_data:
                 await asyncio.to_thread(
-                    lambda: self.client.table('transcripts')
+                    lambda: self.client.table("transcripts")
                     .insert(segments_data)
                     .execute()
                 )
 
-            logger.info(f"Saved {len(segments_data)} transcript segments for meeting {meeting_id}")
+            logger.info(
+                f"Saved {len(segments_data)} transcript segments for meeting {meeting_id}"
+            )
             return True
 
         except APIError as e:
@@ -421,11 +410,7 @@ class SupabaseClient:
             raise SupabaseQueryError(f"Unexpected error: {e}")
 
     @retry_with_backoff(max_attempts=3, initial_delay=1.0)
-    async def save_speakers(
-        self,
-        meeting_id: str,
-        speakers: List[Speaker]
-    ) -> bool:
+    async def save_speakers(self, meeting_id: str, speakers: List[Speaker]) -> bool:
         """
         Save speaker data to database
 
@@ -444,16 +429,18 @@ class SupabaseClient:
             for speaker in speakers:
                 speaker_dict = speaker.dict(exclude_none=True)
                 # Remove fields not in DB schema
-                speaker_dict.pop('meeting_ids', None)
-                speaker_dict.pop('audio_samples', None)  # DB uses audio_sample_url (singular)
-                speaker_dict.pop('id', None)  # Let DB auto-generate UUID
-                speaker_dict['updated_at'] = datetime.now().isoformat()
+                speaker_dict.pop("meeting_ids", None)
+                speaker_dict.pop(
+                    "audio_samples", None
+                )  # DB uses audio_sample_url (singular)
+                speaker_dict.pop("id", None)  # Let DB auto-generate UUID
+                speaker_dict["updated_at"] = datetime.now().isoformat()
                 speakers_data.append(speaker_dict)
 
             if speakers_data:
                 # Insert new speakers (id auto-generated by DB)
                 await asyncio.to_thread(
-                    lambda: self.client.table('speakers')
+                    lambda: self.client.table("speakers")
                     .insert(speakers_data)
                     .execute()
                 )
@@ -469,11 +456,7 @@ class SupabaseClient:
             raise SupabaseQueryError(f"Unexpected error: {e}")
 
     @retry_with_backoff(max_attempts=3, initial_delay=1.0)
-    async def save_summary(
-        self,
-        meeting_id: str,
-        summary: MeetingSummary
-    ) -> bool:
+    async def save_summary(self, meeting_id: str, summary: MeetingSummary) -> bool:
         """
         Save AI-generated summary to database
 
@@ -489,11 +472,11 @@ class SupabaseClient:
         """
         try:
             summary_dict = summary.dict(exclude_none=True)
-            summary_dict['meeting_id'] = meeting_id
-            summary_dict['created_at'] = datetime.now().isoformat()
+            summary_dict["meeting_id"] = meeting_id
+            summary_dict["created_at"] = datetime.now().isoformat()
 
             await asyncio.to_thread(
-                lambda: self.client.table('meeting_summaries')
+                lambda: self.client.table("meeting_summaries")
                 .insert(summary_dict)
                 .execute()
             )
@@ -524,10 +507,10 @@ class SupabaseClient:
         """
         try:
             response = await asyncio.to_thread(
-                lambda: self.client.table('templates')
-                .select('*')
-                .eq('user_id', user_id)
-                .order('created_at', desc=True)
+                lambda: self.client.table("templates")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
                 .execute()
             )
 
@@ -551,7 +534,9 @@ class SupabaseClient:
             raise SupabaseQueryError(f"Unexpected error: {e}")
 
     @retry_with_backoff(max_attempts=3, initial_delay=1.0)
-    async def get_template_by_id(self, template_id: str, user_id: str) -> Optional[Template]:
+    async def get_template_by_id(
+        self, template_id: str, user_id: str
+    ) -> Optional[Template]:
         """
         Get a specific template by ID
 
@@ -567,10 +552,10 @@ class SupabaseClient:
         """
         try:
             response = await asyncio.to_thread(
-                lambda: self.client.table('templates')
-                .select('*')
-                .eq('id', template_id)
-                .eq('user_id', user_id)
+                lambda: self.client.table("templates")
+                .select("*")
+                .eq("id", template_id)
+                .eq("user_id", user_id)
                 .single()
                 .execute()
             )
@@ -592,7 +577,7 @@ class SupabaseClient:
         user_id: str,
         name: str,
         description: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> Optional[Template]:
         """
         Create a new template
@@ -611,18 +596,16 @@ class SupabaseClient:
         """
         try:
             template_data = {
-                'user_id': user_id,
-                'name': name,
-                'description': description,
-                'tags': tags or [],
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                "user_id": user_id,
+                "name": name,
+                "description": description,
+                "tags": tags or [],
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
             }
 
             response = await asyncio.to_thread(
-                lambda: self.client.table('templates')
-                .insert(template_data)
-                .execute()
+                lambda: self.client.table("templates").insert(template_data).execute()
             )
 
             if response.data:
@@ -645,7 +628,7 @@ class SupabaseClient:
         user_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> bool:
         """
         Update an existing template
@@ -664,22 +647,20 @@ class SupabaseClient:
             SupabaseQueryError: If update fails
         """
         try:
-            update_data = {
-                'updated_at': datetime.now().isoformat()
-            }
+            update_data = {"updated_at": datetime.now().isoformat()}
 
             if name is not None:
-                update_data['name'] = name
+                update_data["name"] = name
             if description is not None:
-                update_data['description'] = description
+                update_data["description"] = description
             if tags is not None:
-                update_data['tags'] = tags
+                update_data["tags"] = tags
 
             await asyncio.to_thread(
-                lambda: self.client.table('templates')
+                lambda: self.client.table("templates")
                 .update(update_data)
-                .eq('id', template_id)
-                .eq('user_id', user_id)
+                .eq("id", template_id)
+                .eq("user_id", user_id)
                 .execute()
             )
 
@@ -710,10 +691,10 @@ class SupabaseClient:
         """
         try:
             await asyncio.to_thread(
-                lambda: self.client.table('templates')
+                lambda: self.client.table("templates")
                 .delete()
-                .eq('id', template_id)
-                .eq('user_id', user_id)
+                .eq("id", template_id)
+                .eq("user_id", user_id)
                 .execute()
             )
 
@@ -737,10 +718,7 @@ class SupabaseClient:
         try:
             # Try a simple query to check connection
             await asyncio.to_thread(
-                lambda: self.client.table('meetings')
-                .select('id')
-                .limit(1)
-                .execute()
+                lambda: self.client.table("meetings").select("id").limit(1).execute()
             )
             return True
         except Exception as e:

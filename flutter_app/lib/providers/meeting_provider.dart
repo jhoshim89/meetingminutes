@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/meeting_model.dart';
+import '../models/meeting_summary_model.dart';
 import '../models/transcript_model.dart';
 import '../services/supabase_service.dart';
 import '../services/realtime_service.dart';
@@ -14,6 +15,7 @@ class MeetingProvider with ChangeNotifier {
 
   List<MeetingModel> _meetings = [];
   MeetingModel? _currentMeeting;
+  MeetingSummaryModel? _currentSummary;
   List<TranscriptModel> _transcripts = [];
   bool _isLoading = false;
   String? _error;
@@ -22,6 +24,7 @@ class MeetingProvider with ChangeNotifier {
   // Getters
   List<MeetingModel> get meetings => _meetings;
   MeetingModel? get currentMeeting => _currentMeeting;
+  MeetingSummaryModel? get currentSummary => _currentSummary;
   List<TranscriptModel> get transcripts => _transcripts;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -108,6 +111,8 @@ class MeetingProvider with ChangeNotifier {
 
     try {
       _currentMeeting = await _supabaseService.getMeetingById(meetingId);
+      // Try to fetch summary as well, but don't fail if not found
+      fetchMeetingSummary(meetingId);
       _error = null;
     } catch (e) {
       _error = e.toString();
@@ -115,6 +120,16 @@ class MeetingProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> fetchMeetingSummary(String meetingId) async {
+    // Don't set global loading as this might be secondary
+    try {
+      _currentSummary = await _supabaseService.getMeetingSummary(meetingId);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Fetch meeting summary error: $e');
     }
   }
 
@@ -278,6 +293,7 @@ class MeetingProvider with ChangeNotifier {
 
   void clearCurrentMeeting() {
     _currentMeeting = null;
+    _currentSummary = null;
     _transcripts = [];
     notifyListeners();
   }
@@ -309,6 +325,7 @@ class MeetingProvider with ChangeNotifier {
   void reset() {
     _meetings = [];
     _currentMeeting = null;
+    _currentSummary = null;
     _transcripts = [];
     _error = null;
     _selectedTemplateId = null;
