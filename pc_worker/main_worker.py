@@ -85,8 +85,8 @@ class PCWorker:
         if self.stt_pipeline is None:
             logger.info("Initializing STT pipeline (WhisperX + Speaker Diarization)...")
             self.stt_pipeline = get_stt_pipeline(
-                enable_preprocessing=True,
-                enable_noise_reduction=True
+                enable_preprocessing=False,  # Audio already preprocessed by audio_processor
+                enable_noise_reduction=False  # Noise reduction already applied
             )
             await self.stt_pipeline.initialize()
             logger.info("STT pipeline initialized successfully")

@@ -48,8 +48,10 @@ CUDA_DEVICE = int(os.getenv("CUDA_DEVICE", "0"))
 HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
 
 # Storage Configuration
-AUDIO_TEMP_DIR = Path(os.getenv("AUDIO_TEMP_DIR", "./temp_audio"))
-MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", "./models"))
+# Use absolute paths to avoid issues when working directory changes during model loading
+_BASE_DIR = Path(__file__).parent.resolve()
+AUDIO_TEMP_DIR = Path(os.getenv("AUDIO_TEMP_DIR", str(_BASE_DIR / "temp_audio"))).resolve()
+MODEL_CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", str(_BASE_DIR / "models"))).resolve()
 
 # Create directories if they don't exist
 AUDIO_TEMP_DIR.mkdir(parents=True, exist_ok=True)
