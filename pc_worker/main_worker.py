@@ -83,7 +83,7 @@ class PCWorker:
     async def _ensure_stt_pipeline(self) -> STTPipeline:
         """Ensure STT pipeline is initialized (lazy loading)"""
         if self.stt_pipeline is None:
-            logger.info("Initializing STT pipeline (WhisperX + Speaker Diarization)...")
+            logger.info("Initializing STT pipeline (Moonshine + Speaker Diarization)...")
             self.stt_pipeline = get_stt_pipeline(
                 enable_preprocessing=False,  # Audio already preprocessed by audio_processor
                 enable_noise_reduction=False  # Noise reduction already applied
@@ -167,7 +167,7 @@ class PCWorker:
         3. Get audio URL from meeting record
         4. Download audio from Supabase Storage
         5. Preprocess audio (resample, normalize)
-        6. [Phase 2] Run WhisperX STT + Diarization
+        6. [Phase 2] Run Moonshine STT + Diarization
         7. [Phase 2] Extract speaker embeddings
         8. [Phase 2] Match speakers to registered speakers
         9. [Phase 3] Generate summary with Ollama + Gemma 2

@@ -62,7 +62,8 @@ MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "1"))
 POLLING_INTERVAL_SECONDS = int(os.getenv("POLLING_INTERVAL_SECONDS", "60"))
 
 # Model Configuration
-WHISPERX_MODEL = "large-v2"
+# Moonshine Korean model - ~5.7% CER, 5x faster than Whisper
+MOONSHINE_MODEL = "moonshine/tiny-ko"
 DIARIZATION_MODEL = "pyannote/speaker-diarization-3.0"
 EMBEDDING_MODEL = "speechbrain/spkrec-ecapa-tdnn"
 

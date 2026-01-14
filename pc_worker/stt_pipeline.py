@@ -1,6 +1,12 @@
 """
 Integrated STT + Speaker Diarization Pipeline
-Combines audio processing, WhisperX transcription, and speaker diarization
+Combines audio processing, Moonshine transcription, and speaker diarization
+
+Pipeline flow (optimized for Moonshine):
+1. Audio preprocessing (normalization, resampling)
+2. Speaker diarization (Pyannote) - provides timestamped speaker segments
+3. Transcription (Moonshine) - transcribes each speaker segment
+4. Result assembly
 """
 
 import asyncio
@@ -8,9 +14,11 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import time
 from dataclasses import dataclass
+import numpy as np
+import soundfile as sf
 
 from audio_processor import AudioProcessor, get_audio_processor
-from whisperx_engine import WhisperXEngine, get_whisperx_engine
+from moonshine_engine import MoonshineEngine, get_moonshine_engine
 from speaker_diarization import SpeakerDiarizationEngine, get_diarization_engine
 from models import (
     TranscriptSegment,
@@ -56,18 +64,22 @@ class STTPipeline:
     """
     Integrated pipeline for speech-to-text and speaker diarization
 
-    Pipeline stages:
-    1. Audio preprocessing (noise reduction, normalization)
-    2. Speech-to-text transcription (WhisperX)
-    3. Speaker diarization (Pyannote)
-    4. Alignment of transcript with speaker labels
-    5. Speaker embedding extraction
+    Pipeline stages (Moonshine-optimized):
+    1. Audio preprocessing (normalization, resampling to 16kHz)
+    2. Speaker diarization (Pyannote) - runs first to get timestamped segments
+    3. Speech-to-text transcription (Moonshine) - transcribes each segment
+    4. Speaker embedding extraction (optional)
+
+    Key difference from WhisperX pipeline:
+    - Diarization runs BEFORE transcription
+    - Moonshine transcribes each speaker segment individually
+    - No separate alignment step needed (timestamps come from diarization)
     """
 
     def __init__(
         self,
         audio_processor: Optional[AudioProcessor] = None,
-        whisperx_engine: Optional[WhisperXEngine] = None,
+        moonshine_engine: Optional[MoonshineEngine] = None,
         diarization_engine: Optional[SpeakerDiarizationEngine] = None,
         enable_preprocessing: bool = True,
         enable_noise_reduction: bool = True
@@ -77,13 +89,13 @@ class STTPipeline:
 
         Args:
             audio_processor: Audio processor instance (creates default if None)
-            whisperx_engine: WhisperX engine instance (creates default if None)
+            moonshine_engine: Moonshine engine instance (creates default if None)
             diarization_engine: Diarization engine instance (creates default if None)
             enable_preprocessing: Whether to apply audio preprocessing
             enable_noise_reduction: Whether to apply noise reduction
         """
         self.audio_processor = audio_processor or get_audio_processor()
-        self.whisperx_engine = whisperx_engine or get_whisperx_engine()
+        self.moonshine_engine = moonshine_engine or get_moonshine_engine()
         self.diarization_engine = diarization_engine or get_diarization_engine()
 
         self.enable_preprocessing = enable_preprocessing
@@ -91,7 +103,7 @@ class STTPipeline:
 
         self._is_initialized = False
 
-        logger.info("STT Pipeline initialized")
+        logger.info("STT Pipeline initialized (Moonshine backend)")
 
     async def initialize(self) -> None:
         """
@@ -107,11 +119,11 @@ class STTPipeline:
         logger.log_operation_start("initialize_stt_pipeline")
 
         try:
-            # Initialize WhisperX (heavy operation)
-            await self.whisperx_engine.initialize()
-
-            # Initialize Diarization pipeline (heavy operation)
+            # Initialize Diarization pipeline first (needed before transcription)
             await self.diarization_engine.initialize()
+
+            # Initialize Moonshine STT engine
+            await self.moonshine_engine.initialize()
 
             self._is_initialized = True
 
@@ -172,21 +184,15 @@ class STTPipeline:
             # Load audio metadata
             audio_metadata = await self._get_audio_metadata(preprocessed_path)
 
-            # Stage 2: Speech-to-Text Transcription
-            transcription_start = time.time()
-            transcript_segments = await self.whisperx_engine.transcribe(
-                preprocessed_path,
-                meeting_id,
-                language=language
+            # Load audio data for Moonshine (needs raw audio array)
+            audio_data, sample_rate = await asyncio.to_thread(
+                sf.read, str(preprocessed_path)
             )
-            transcription_time = time.time() - transcription_start
+            audio_data = audio_data.astype(np.float32)
+            if len(audio_data.shape) > 1:
+                audio_data = audio_data.mean(axis=1)  # Convert to mono
 
-            logger.info(
-                f"Transcription complete: {len(transcript_segments)} segments "
-                f"in {transcription_time:.2f}s"
-            )
-
-            # Stage 3: Speaker Diarization
+            # Stage 2: Speaker Diarization (runs FIRST in Moonshine pipeline)
             diarization_start = time.time()
             diarization = await self.diarization_engine.diarize(
                 preprocessed_path,
@@ -203,14 +209,23 @@ class STTPipeline:
                 f"in {diarization_time:.2f}s"
             )
 
-            # Stage 4: Align transcript with speaker labels
-            alignment_start = time.time()
-            aligned_segments = await self.diarization_engine.align_with_transcript(
+            # Stage 3: Speech-to-Text Transcription (segment by segment)
+            transcription_start = time.time()
+            aligned_segments = await self.moonshine_engine.transcribe_with_diarization(
+                audio_data,
                 diarization,
-                transcript_segments,
-                meeting_id
+                meeting_id,
+                sample_rate=sample_rate
             )
-            alignment_time = time.time() - alignment_start
+            transcription_time = time.time() - transcription_start
+
+            logger.info(
+                f"Transcription complete: {len(aligned_segments)} segments "
+                f"in {transcription_time:.2f}s"
+            )
+
+            # No separate alignment needed - Moonshine transcribes with speaker labels
+            alignment_time = 0.0
 
             # Stage 5: Extract speaker embeddings (optional - may fail if model not available)
             speaker_embeddings = {}
@@ -438,7 +453,8 @@ class STTPipeline:
             "initialized": self._is_initialized,
             "preprocessing_enabled": self.enable_preprocessing,
             "noise_reduction_enabled": self.enable_noise_reduction,
-            "whisperx": self.whisperx_engine.get_model_info() if self._is_initialized else {},
+            "stt_engine": "moonshine",
+            "moonshine": self.moonshine_engine.get_model_info() if self._is_initialized else {},
             "diarization": self.diarization_engine.get_pipeline_info() if self._is_initialized else {}
         }
 
@@ -446,8 +462,8 @@ class STTPipeline:
         """Clean up all pipeline resources"""
         logger.info("Cleaning up STT pipeline")
 
-        if self.whisperx_engine:
-            await self.whisperx_engine.cleanup()
+        if self.moonshine_engine:
+            await self.moonshine_engine.cleanup()
 
         if self.diarization_engine:
             await self.diarization_engine.cleanup()

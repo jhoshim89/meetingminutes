@@ -6,7 +6,6 @@ torchaudio==2.5.1
 
 python-dotenv>=1.0.0
 supabase>=2.4.0
-whisperx>=3.1.1
 pyannote.audio>=3.0.1
 librosa>=0.10.0
 numpy>=1.26.0
@@ -16,14 +15,17 @@ python-multipart>=0.0.6
 aiohttp>=3.9.0
 psutil>=5.9.6
 
+# Moonshine STT (Korean optimized - ~5.7% CER)
+moonshine-onnx @ git+https://github.com/moonshine-ai/moonshine.git#subdirectory=moonshine-onnx
+onnxruntime-gpu>=1.16.0
+
 # LLM and Summarization
 langchain>=0.1.0
 langchain-text-splitters>=0.0.1
 langchain-community>=0.0.10
 ollama>=0.1.0
 
-# Additional dependencies for WhisperX and Speaker Diarization
-faster-whisper>=0.10.0
+# Additional dependencies for Speaker Diarization
 speechbrain>=0.5.16
 transformers>=4.35.0
 scipy>=1.11.4
