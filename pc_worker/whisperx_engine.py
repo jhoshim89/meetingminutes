@@ -30,7 +30,7 @@ class WhisperXConfig:
     compute_type: str = "float16" if torch.cuda.is_available() else "int8"
     language: str = "ko"  # Korean
     batch_size: int = 16
-    confidence_threshold: float = 0.8
+    confidence_threshold: float = 0.4  # 한국어는 0.4 권장 (영어 대비 신뢰도 낮게 나옴)
     chunk_length_seconds: int = 30
 
     def __post_init__(self):
