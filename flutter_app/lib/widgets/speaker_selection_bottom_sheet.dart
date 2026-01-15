@@ -23,13 +23,23 @@ class SpeakerSelectionBottomSheet extends StatefulWidget {
     required TranscriptModel transcript,
     VoidCallback? onSpeakerChanged,
   }) {
+    // 호출 시점의 Provider 인스턴스 캡처 (showModalBottomSheet의 새 context는 Provider 범위 밖)
+    final speakerProvider = context.read<SpeakerProvider>();
+    final meetingProvider = context.read<MeetingProvider>();
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SpeakerSelectionBottomSheet(
-        transcript: transcript,
-        onSpeakerChanged: onSpeakerChanged,
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: speakerProvider),
+          ChangeNotifierProvider.value(value: meetingProvider),
+        ],
+        child: SpeakerSelectionBottomSheet(
+          transcript: transcript,
+          onSpeakerChanged: onSpeakerChanged,
+        ),
       ),
     );
   }
@@ -98,6 +108,20 @@ class _SpeakerSelectionBottomSheetState
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      TextButton.icon(
+                        onPressed: _showAddSpeakerDialog,
+                        icon: const Icon(Icons.person_add, size: 20),
+                        label: const Text('화자 추가', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -167,6 +191,9 @@ class _SpeakerSelectionBottomSheetState
                         // All speakers section
                         _buildSectionHeader('전체 화자', Icons.people),
 
+                        // Always show "Add New Speaker" option at the top of the list for easy access
+                        _buildAddNewSpeakerTile(),
+
                         // Keep unknown option
                         _buildUnknownSpeakerTile(),
 
@@ -175,7 +202,7 @@ class _SpeakerSelectionBottomSheetState
                           return _buildSpeakerTile(speaker);
                         }),
 
-                        if (filteredSpeakers.isEmpty && _searchQuery.isNotEmpty)
+                        if (filteredSpeakers.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(32),
                             child: Center(
@@ -185,6 +212,12 @@ class _SpeakerSelectionBottomSheetState
                               ),
                             ),
                           ),
+
+                        // Create new speaker option (if search query is not empty)
+                        if (_searchQuery.isNotEmpty &&
+                            !filteredSpeakers.any((s) =>
+                                s.displayName.toLowerCase() == _searchQuery))
+                          _buildCreateSpeakerTile(_searchQuery),
 
                         const SizedBox(height: 16),
                       ],
@@ -197,6 +230,102 @@ class _SpeakerSelectionBottomSheetState
         );
       },
     );
+  }
+
+  Future<void> _showAddSpeakerDialog() async {
+    final controller = TextEditingController();
+    
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('새 화자 추가'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '화자 이름',
+            hintText: '이름을 입력하세요',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.isNotEmpty) {
+      // Clear search query to show the new speaker
+      setState(() {
+        _searchQuery = '';
+      });
+      await _createNewSpeaker(name);
+    }
+  }
+
+  Widget _buildCreateSpeakerTile(String speakerName) {
+    return Card(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      color: Colors.green.shade50,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.green,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+        title: Text(
+          '새 화자 생성: "$speakerName"',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
+          ),
+        ),
+        subtitle: const Text('새로운 화자로 등록하고 선택합니다'),
+        onTap: _isUpdating ? null : () => _createNewSpeaker(speakerName),
+      ),
+    );
+  }
+
+  Future<void> _createNewSpeaker(String name) async {
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      final speakerProvider = context.read<SpeakerProvider>();
+      final newSpeaker = await speakerProvider.createSpeaker(name);
+
+      if (newSpeaker != null && mounted) {
+        // Automatically select the newly created speaker
+        await _selectSpeaker(newSpeaker.id, newSpeaker.displayName);
+      } else if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('화자 생성에 실패했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    }
   }
 
   Widget _buildSectionHeader(String title, IconData icon) {
@@ -283,6 +412,33 @@ class _SpeakerSelectionBottomSheetState
     );
   }
 
+  Widget _buildAddNewSpeakerTile() {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: Colors.blue.shade50,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blue.shade100),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.white,
+          child: const Icon(Icons.add, color: Colors.blue),
+        ),
+        title: const Text(
+          '새 화자 추가하기',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        subtitle: const Text('목록에 없는 경우 직접 추가하세요'),
+        onTap: _isUpdating ? null : _showAddSpeakerDialog,
+      ),
+    );
+  }
+
   Widget _buildUnknownSpeakerTile() {
     final isCurrentSpeaker = widget.transcript.speakerId == null;
 
@@ -314,17 +470,84 @@ class _SpeakerSelectionBottomSheetState
       return;
     }
 
+    // Check for other segments with the same current speaker
+    final meetingProvider = context.read<MeetingProvider>();
+    final currentSpeakerId = widget.transcript.speakerId;
+    final currentSpeakerName = widget.transcript.speakerName;
+    
+    // Find matching transcripts (excluding current one)
+    final sameSpeakerSegments = meetingProvider.transcripts.where((t) {
+      if (t.id == widget.transcript.id) return false;
+      
+      if (currentSpeakerId != null) {
+        return t.speakerId == currentSpeakerId;
+      } else {
+        // If ID is null, match by name (e.g. "Speaker 0")
+        return t.speakerId == null && t.speakerName == currentSpeakerName;
+      }
+    }).toList();
+
+    bool applyToAll = false;
+
+    if (sameSpeakerSegments.isNotEmpty) {
+      // Ask user if they want to apply to all
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('일괄 변경'),
+          content: Text(
+            '동일한 화자("${currentSpeakerName ?? 'Unknown'}")로 표시된 세그먼트가 ${sameSpeakerSegments.length}개 더 있습니다.\n\n모두 "${speakerName ?? 'Unknown'}"(으)로 변경하시겠습니까?'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('이것만 변경'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('모두 변경'),
+            ),
+          ],
+        ),
+      );
+
+      if (result == null) return; // Cancelled
+      applyToAll = result;
+    }
+
     setState(() {
       _isUpdating = true;
     });
 
     try {
-      final meetingProvider = context.read<MeetingProvider>();
-      final success = await meetingProvider.updateTranscriptSpeaker(
-        widget.transcript.id,
-        speakerId: speakerId,
-        speakerName: speakerName,
-      );
+      bool success;
+      
+      if (applyToAll) {
+        // Merge logic
+        final sourceIds = currentSpeakerId != null ? [currentSpeakerId] : <String>[];
+        final sourceNames = currentSpeakerName != null ? [currentSpeakerName] : <String>[];
+        
+        // Ensure we at least have matched by name if ID is missing
+        if (sourceIds.isEmpty && sourceNames.isEmpty) {
+          // Should not happen if we found segments, but safe fallback
+          if (currentSpeakerName != null) sourceNames.add(currentSpeakerName);
+        }
+
+        success = await meetingProvider.mergeSpeakers(
+          meetingId: widget.transcript.meetingId,
+          sourceSpeakerIds: sourceIds,
+          sourceSpeakerNames: sourceNames,
+          targetSpeakerId: speakerId,
+          targetSpeakerName: speakerName,
+        );
+      } else {
+        // Single update logic
+        success = await meetingProvider.updateTranscriptSpeaker(
+          widget.transcript.id,
+          speakerId: speakerId,
+          speakerName: speakerName,
+        );
+      }
 
       if (success && mounted) {
         widget.onSpeakerChanged?.call();
@@ -333,7 +556,7 @@ class _SpeakerSelectionBottomSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(speakerName != null
-                ? '화자가 "$speakerName"(으)로 변경되었습니다'
+                ? '화자가 "$speakerName"(으)로 변경되었습니다${applyToAll ? ' (일괄 적용)' : ''}'
                 : '화자가 "Unknown"으로 변경되었습니다'),
             duration: const Duration(seconds: 2),
           ),

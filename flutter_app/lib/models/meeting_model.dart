@@ -135,4 +135,6 @@ class MeetingModel {
   }
 
   String get tagsDisplay => tags.isEmpty ? '' : tags.join(', ');
+
+  bool get isArchived => metadata?['archived'] == true;
 }

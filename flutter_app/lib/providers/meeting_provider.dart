@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import '../models/meeting_model.dart';
 import '../models/meeting_summary_model.dart';
@@ -274,6 +275,63 @@ class MeetingProvider with ChangeNotifier {
     }
   }
 
+  /// Download meeting audio (Web implementation)
+  /// Returns custom filename used
+  Future<String?> downloadMeetingAudio(MeetingModel meeting) async {
+    try {
+      if (meeting.audioUrl == null) return null;
+
+      // 1. Generate filename: YYYYMMDD_Title.wav
+      // Sanitize title (remove invalid chars)
+      final safeTitle = meeting.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+      final dateStr = meeting.createdAt.toIso8601String().split('T')[0].replaceAll('-', '');
+      final filename = '${dateStr}_$safeTitle.wav';
+
+      // 2. Trigger Download
+      // Create anchor element
+      final anchor = html.AnchorElement(href: meeting.audioUrl)
+        ..setAttribute('download', filename)
+        ..target = 'blank';
+      
+      // Click it
+      html.document.body?.append(anchor);
+      anchor.click();
+      anchor.remove();
+
+      return filename;
+    } catch (e) {
+      debugPrint('Download audio error: $e');
+      return null;
+    }
+  }
+
+  /// Finalize archive (Delete audio from cloud)
+  Future<bool> finalizeArchive(String meetingId) async {
+    try {
+      final meeting = _meetings.firstWhere((m) => m.id == meetingId);
+      
+      String path = meeting.audioUrl ?? '';
+      // Safe path extraction
+      if (path.contains('/meetings/')) {
+        path = path.split('/meetings/').last.split('?').first;
+      }
+      
+      await _supabaseService.archiveMeetingAudio(
+        meetingId: meetingId,
+        audioPath: path,
+      );
+
+      // Reload meeting to update UI
+      await _reloadMeeting(meetingId);
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Finalize archive error: $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> fetchTranscripts(String meetingId) async {
     _isLoading = true;
     _error = null;
@@ -316,6 +374,37 @@ class MeetingProvider with ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       debugPrint('Update transcript speaker error: $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Merge multiple speakers into a single target speaker
+  Future<bool> mergeSpeakers({
+    required String meetingId,
+    required List<String> sourceSpeakerIds,
+    required List<String> sourceSpeakerNames,
+    required String? targetSpeakerId,
+    required String? targetSpeakerName,
+  }) async {
+    try {
+      final success = await _supabaseService.mergeTranscriptSpeakers(
+        meetingId: meetingId,
+        sourceSpeakerIds: sourceSpeakerIds,
+        sourceSpeakerNames: sourceSpeakerNames,
+        targetSpeakerId: targetSpeakerId,
+        targetSpeakerName: targetSpeakerName,
+      );
+
+      if (success) {
+        // Reload transcripts to reflect changes
+        await fetchTranscripts(meetingId);
+      }
+
+      return success;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Merge speakers error: $e');
       notifyListeners();
       return false;
     }

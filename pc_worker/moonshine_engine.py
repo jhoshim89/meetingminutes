@@ -8,6 +8,7 @@ Optimized for Korean speech recognition with ~5.7% CER
 from config import ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR
 
 import asyncio
+import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import numpy as np
@@ -25,6 +26,35 @@ logger = get_logger("moonshine_engine")
 
 # Moonshine model configuration
 MOONSHINE_MODEL = "moonshine/tiny-ko"
+
+
+def remove_repetition(text: str, min_pattern_len: int = 2, max_pattern_len: int = 30) -> str:
+    """
+    Remove repetitive patterns from transcribed text (hallucination filtering)
+
+    Moonshine and other transformer models sometimes produce repetitive outputs
+    like "그렇죠. 그렇죠. 그렇죠..." when audio is unclear or too short.
+
+    Args:
+        text: Input text to clean
+        min_pattern_len: Minimum length of pattern to detect (default 2)
+        max_pattern_len: Maximum length of pattern to detect (default 30)
+
+    Returns:
+        Cleaned text with repetitions removed
+    """
+    if not text or len(text) < min_pattern_len * 3:
+        return text
+
+    # Pattern: find 2+ consecutive repetitions of 2-30 character sequences
+    pattern = rf'(.{{{min_pattern_len},{max_pattern_len}}}?)(\s*\1){{{2},}}'
+    cleaned = re.sub(pattern, r'\1', text)
+
+    # Log if significant repetition was removed
+    if len(cleaned) < len(text) * 0.7:
+        logger.debug(f"Removed repetition: {len(text)} -> {len(cleaned)} chars")
+
+    return cleaned.strip()
 
 
 @dataclass
@@ -186,7 +216,7 @@ class MoonshineEngine:
                 meeting_id=meeting_id,
                 start_time=start_time,
                 end_time=end_time,
-                text=text.strip(),
+                text=remove_repetition(text.strip()),
                 confidence=None,  # Moonshine doesn't provide confidence
                 speaker_label=speaker_label,
                 speaker_id=None
@@ -438,7 +468,7 @@ class MoonshineEngine:
                 meeting_id=meeting_id,
                 start_time=0.0,
                 end_time=duration,
-                text=text.strip(),
+                text=remove_repetition(text.strip()),
                 confidence=None,
                 speaker_label=None,
                 speaker_id=None

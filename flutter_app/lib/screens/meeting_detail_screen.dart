@@ -8,6 +8,8 @@ import '../models/meeting_model.dart';
 import '../models/meeting_summary_model.dart';
 import '../models/transcript_model.dart';
 import '../widgets/speaker_selection_bottom_sheet.dart';
+import '../widgets/speaker_grouping_dialog.dart';
+
 
 class MeetingDetailScreen extends StatefulWidget {
   final String meetingId;
@@ -179,10 +181,104 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
               const SizedBox(height: 8),
               _buildInfoRow(Icons.people, '${meeting.speakerCount} speakers'),
             ],
+            
+            // Archive Status / Button
+            const SizedBox(height: 16),
+            const Divider(),
+            if (meeting.isArchived)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey[600]),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Audio Archived (Local)',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (meeting.status == 'completed' && meeting.audioUrl != null)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _archiveAudio(context, meeting),
+                  icon: const Icon(Icons.download_for_offline_outlined),
+                  label: const Text('Archive Audio (Download & Delete from Cloud)'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue[700],
+                    side: BorderSide(color: Colors.blue[300]!),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _archiveAudio(BuildContext context, MeetingModel meeting) async {
+    final provider = context.read<MeetingProvider>();
+    
+    // 1. Trigger Download
+    final filename = await provider.downloadMeetingAudio(meeting);
+    
+    if (filename == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to start download'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    // 2. Confirm Success
+    if (!context.mounted) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Archive'),
+        content: Text(
+          'Did the file "$filename" download successfully?\n\n'
+          'If you click YES, the audio will be deleted from the server to save space.\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No, Keep File'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            child: const Text('Yes, Delete from Cloud'),
+          ),
+        ],
+      ),
+    );
+
+    // 3. Finalize
+    if (confirmed == true && context.mounted) {
+      final success = await provider.finalizeArchive(meeting.id);
+      if (context.mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Meeting archived successfully!'), backgroundColor: Colors.green),
+          );
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update archive status'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text) {
@@ -414,44 +510,76 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   }
 
   Widget _buildTranscriptSection(List<TranscriptModel> transcripts) {
+    if (transcripts.isEmpty) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.pending, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 8),
+                Text(
+                  'Transcript is being processed',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (transcripts.isEmpty)
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(Icons.pending, size: 48, color: Colors.grey[400]),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Transcript is being processed',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
+        // Header with actions
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Transcript (${transcripts.length} segments)',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          )
-        else
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < transcripts.length; i++) ...[
-                    _buildTranscriptLine(transcripts[i]),
-                    if (i < transcripts.length - 1) const Divider(height: 24),
-                  ],
-                ],
+            TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => SpeakerGroupingDialog(
+                    meetingId: widget.meetingId,
+                    transcripts: transcripts,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.group_work, size: 18),
+              label: const Text('Group Speakers'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < transcripts.length; i++) ...[
+                  _buildTranscriptLine(transcripts[i]),
+                  if (i < transcripts.length - 1) const Divider(height: 24),
+                ],
+              ],
             ),
           ),
+        ),
       ],
     );
   }
@@ -489,23 +617,31 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                     onTap: () => _showSpeakerSelectionBottomSheet(transcript),
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             transcript.displaySpeaker,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
-                              color: Colors.blue,
+                              color: transcript.speakerId == null 
+                                  ? Colors.orange 
+                                  : Colors.blue,
+                              decoration: transcript.speakerId == null 
+                                  ? TextDecoration.underline
+                                  : null,
+                              decorationColor: Colors.orange.withOpacity(0.5),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.edit,
                             size: 14,
-                            color: Colors.grey[500],
+                            color: transcript.speakerId == null 
+                                ? Colors.orange.withOpacity(0.7)
+                                : Colors.grey[500],
                           ),
                         ],
                       ),

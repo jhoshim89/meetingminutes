@@ -31,7 +31,7 @@ class SupabaseService {
     String? templateId,
   }) async {
     try {
-      var query = client.from('meetings').select().eq('user_id', userId!);
+      var query = client.from('meetings').select();
 
       if (status != null) {
         query = query.eq('status', status);
@@ -59,7 +59,6 @@ class SupabaseService {
           .from('meetings')
           .select()
           .eq('id', meetingId)
-          .eq('user_id', userId!)
           .single();
 
       return MeetingModel.fromJson(response);
@@ -355,6 +354,25 @@ class SupabaseService {
     }
   }
 
+  Future<SpeakerModel> createSpeaker({
+    required String name,
+    bool isRegistered = true,
+  }) async {
+    try {
+      final response = await client.from('speakers').insert({
+        'user_id': userId,
+        'name': name,
+        'is_registered': isRegistered,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).select().single();
+
+      return SpeakerModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to create speaker: $e');
+    }
+  }
+
   // ====================
   // TRANSCRIPTS
   // ====================
@@ -402,6 +420,51 @@ class SupabaseService {
       return TranscriptModel.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update transcript speaker: $e');
+    }
+  }
+
+  /// Merge multiple speakers into one target speaker
+  /// Updates all transcript segments for the given meeting that match any of the source speaker IDs or names
+  Future<bool> mergeTranscriptSpeakers({
+    required String meetingId,
+    required List<String> sourceSpeakerIds,
+    required List<String> sourceSpeakerNames,
+    required String? targetSpeakerId,
+    required String? targetSpeakerName,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'speaker_id': targetSpeakerId,
+        'speaker_name': targetSpeakerName,
+      };
+
+      // We need to construct a filter that matches EITHER speaker_id IN sourceSpeakerIds OR speaker_name IN sourceSpeakerNames
+      // However, Supabase/PostgREST 'or' syntax can be tricky with complex conditions.
+      // It's safer and clearer to do two updates if we have both IDs and Names to match.
+      
+      // 1. Update by IDs
+      if (sourceSpeakerIds.isNotEmpty) {
+        await client
+            .from('transcripts')
+            .update(updates)
+            .eq('meeting_id', meetingId)
+            .in_('speaker_id', sourceSpeakerIds);
+      }
+
+      // 2. Update by Names (for those without IDs or just matching by name string)
+      // Note: This might overlap with step 1, but that's harmless (idempotent for the result)
+      if (sourceSpeakerNames.isNotEmpty) {
+        await client
+            .from('transcripts')
+            .update(updates)
+            .eq('meeting_id', meetingId)
+            .in_('speaker_name', sourceSpeakerNames);
+      }
+
+      return true;
+    } catch (e) {
+      print('Failed to merge transcript speakers: $e');
+      throw Exception('Failed to merge transcript speakers: $e');
     }
   }
 
@@ -579,6 +642,56 @@ class SupabaseService {
   }
 
   // ====================
+  // ARCHIVE (Local Save)
+  // ====================
+
+  /// Archive meeting audio (Delete from cloud, mark as archived)
+  Future<void> archiveMeetingAudio({
+    required String meetingId,
+    required String audioPath,
+  }) async {
+    try {
+      // 1. Delete from Storage
+      // audioPath usually comes from the URL or stored path.
+      // If it's a full URL, we might need to extract the path.
+      // Assuming audioPath passed here is the relative path in the bucket (e.g. "user_id/meeting_id.m4a")
+
+      // If checks are needed on path format:
+      // final path = audioPath.replaceFirst(RegExp(r'.*/meetings/'), '');
+
+      // However, usually we store the relative path or full URL.
+      // Let's assume we need to handle the removal carefully.
+      // If the caller passes the relative path:
+      if (audioPath.isNotEmpty) {
+          await client.storage.from('meetings').remove([audioPath]);
+      }
+
+      // 2. Update Metadata
+      // First fetch current metadata to avoid overwriting other fields
+      final meeting = await getMeetingById(meetingId);
+      final currentMetadata = meeting.metadata ?? {};
+      final updatedMetadata = Map<String, dynamic>.from(currentMetadata);
+      
+      updatedMetadata['archived'] = true;
+      updatedMetadata['archived_at'] = DateTime.now().toIso8601String();
+
+      await client
+          .from('meetings')
+          .update({
+            'metadata': updatedMetadata,
+            // Optionally clear audio_url if we want to be strict, 
+            // but keeping it might be useful for history unless we want to force UI to see it's gone.
+            // Let's clear it to ensure no component tries to play it.
+            'audio_url': null, 
+          })
+          .eq('id', meetingId);
+
+    } catch (e) {
+      throw Exception('Failed to archive meeting audio: $e');
+    }
+  }
+
+  // ====================
   // APPOINTMENTS
   // ====================
 
@@ -593,8 +706,7 @@ class SupabaseService {
     try {
       var query = client
           .from('appointments')
-          .select()
-          .eq('user_id', userId!);
+          .select();
 
       if (status != null) {
         query = query.eq('status', status);

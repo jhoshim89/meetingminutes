@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:html' as html;
 import 'screens/home_screen.dart';
+import 'screens/home_navigator.dart';
 import 'screens/recorder_screen.dart';
 import 'screens/meeting_detail_screen.dart';
 import 'screens/speaker_manager_screen.dart';
@@ -170,7 +171,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   String? _initialAppointmentId;
 
   final List<Widget> _screens = const [
-    HomeScreen(),
+    HomeNavigator(),
     SearchScreen(),
     RecorderScreen(),
     SchedulerScreen(),
@@ -313,49 +314,38 @@ class _MainNavigatorState extends State<MainNavigator> {
     }
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            type: BottomNavigationBarType.fixed,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: '홈',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.search),
-                label: '검색',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.mic),
-                label: '녹음',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_today),
-                label: '캘린더',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: '화자',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings),
-                label: '설정',
-              ),
-            ],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '홈',
           ),
-          // iOS 홈 인디케이터 영역 확보 (모든 플랫폼 적용)
-          Container(
-            color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
-                   Theme.of(context).scaffoldBackgroundColor,
-            height: MediaQuery.of(context).padding.bottom,
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: '검색',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.mic),
+            label: '녹음',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: '캘린더',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '화자',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: '설정',
           ),
         ],
       ),

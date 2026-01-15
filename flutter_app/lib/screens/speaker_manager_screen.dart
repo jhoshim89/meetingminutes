@@ -4,6 +4,7 @@ import '../providers/speaker_provider.dart';
 import '../models/speaker_model.dart';
 import '../widgets/unregistered_speaker_tile.dart';
 import '../widgets/speaker_input_form.dart';
+import '../widgets/audio_player_control.dart';
 
 class SpeakerManagerScreen extends StatefulWidget {
   const SpeakerManagerScreen({Key? key}) : super(key: key);
@@ -128,6 +129,38 @@ class _SpeakerManagerScreenState extends State<SpeakerManagerScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              // Audio Player (Added functionality)
+              if (_audioSampleUrl != null) ...[
+                Text(
+                  'Listen to voice sample:',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                ),
+                const SizedBox(height: 8),
+                AudioPlayerControl(
+                  audioUrl: _audioSampleUrl!,
+                  showWaveform: true,
+                ),
+                const SizedBox(height: 24),
+              ] else if (_audioSampleUrl == null) ...[
+                 // Loading indicator or no audio message
+                 Container(
+                   padding: const EdgeInsets.symmetric(vertical: 12),
+                   alignment: Alignment.center,
+                   child: const Row(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     children: [
+                        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 12),
+                        Text('Loading audio sample...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                     ],
+                   )
+                 ),
+                 const SizedBox(height: 24),
+              ],
 
               // Name input form
               SpeakerInputForm(
