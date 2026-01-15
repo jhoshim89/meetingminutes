@@ -40,7 +40,7 @@ KOREAN_MODELS = {
 @dataclass
 class KoreanWhisperConfig:
     """한국어 Whisper 모델 설정"""
-    model_id: str = "ghost613/whisper-large-v3-turbo-korean"
+    model_id: str = "seastar105/whisper-medium-ko-zeroth"  # CER 1.48%, 가볍고 정확
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype: torch.dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     chunk_length_s: int = 30

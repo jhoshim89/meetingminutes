@@ -171,14 +171,9 @@ async def main():
     parser.add_argument("audio_file", help="테스트할 오디오 파일 경로")
     parser.add_argument(
         "--models",
-        choices=["all", "whisperx", "korean"],
-        default="all",
-        help="테스트할 모델 (기본: all)"
-    )
-    parser.add_argument(
-        "--korean-model",
-        default="ghost613/whisper-large-v3-turbo-korean",
-        help="한국어 모델 ID"
+        choices=["all", "whisperx", "korean", "all3"],
+        default="all3",
+        help="테스트할 모델 (기본: all3 = 세 개 모두)"
     )
 
     args = parser.parse_args()
@@ -197,13 +192,24 @@ async def main():
     print("🎤 " * 20)
 
     # WhisperX 테스트
-    if args.models in ["all", "whisperx"]:
+    if args.models in ["all", "all3", "whisperx"]:
         result = await test_whisperx(audio_path, meeting_id)
         results.append(result)
 
-    # 한국어 모델 테스트
-    if args.models in ["all", "korean"]:
-        result = await test_korean_model(audio_path, meeting_id, args.korean_model)
+    # 한국어 모델 테스트 - ghost613 (large-v3-turbo)
+    if args.models in ["all3"]:
+        result = await test_korean_model(
+            audio_path, meeting_id,
+            "ghost613/whisper-large-v3-turbo-korean"
+        )
+        results.append(result)
+
+    # 한국어 모델 테스트 - seastar105 (medium)
+    if args.models in ["all", "all3", "korean"]:
+        result = await test_korean_model(
+            audio_path, meeting_id,
+            "seastar105/whisper-medium-ko-zeroth"
+        )
         results.append(result)
 
     # 결과 비교
