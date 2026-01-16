@@ -321,6 +321,39 @@ class MeetingProvider with ChangeNotifier {
     }
   }
 
+  /// Bulk update speaker assignment for multiple transcripts
+  /// [fromTime] - if provided, only updates transcripts starting from this time
+  /// Returns the number of updated transcripts
+  Future<int> bulkUpdateTranscriptSpeaker({
+    required String meetingId,
+    required String? oldSpeakerId,
+    required String? newSpeakerId,
+    required String? newSpeakerName,
+    double? fromTime,
+  }) async {
+    try {
+      final updatedCount = await _supabaseService.bulkUpdateTranscriptSpeaker(
+        meetingId: meetingId,
+        oldSpeakerId: oldSpeakerId,
+        newSpeakerId: newSpeakerId,
+        newSpeakerName: newSpeakerName,
+        fromTime: fromTime,
+      );
+
+      // Refresh transcripts to get updated data
+      if (updatedCount > 0) {
+        await fetchTranscripts(meetingId);
+      }
+
+      return updatedCount;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Bulk update transcript speaker error: $e');
+      notifyListeners();
+      return 0;
+    }
+  }
+
   void clearCurrentMeeting() {
     _currentMeeting = null;
     _currentSummary = null;

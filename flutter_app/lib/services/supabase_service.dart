@@ -405,6 +405,54 @@ class SupabaseService {
     }
   }
 
+  /// Bulk update speaker assignment for multiple transcripts
+  /// [fromTime] - if provided, only updates transcripts from this time onwards
+  /// Returns the number of updated transcripts
+  Future<int> bulkUpdateTranscriptSpeaker({
+    required String meetingId,
+    required String? oldSpeakerId,
+    required String? newSpeakerId,
+    required String? newSpeakerName,
+    double? fromTime,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+
+      // Allow setting speakerId to null (unknown speaker)
+      updates['speaker_id'] = newSpeakerId;
+
+      if (newSpeakerName != null) {
+        updates['speaker_name'] = newSpeakerName;
+      }
+
+      // Build query
+      var query = client
+          .from('transcripts')
+          .update(updates)
+          .eq('meeting_id', meetingId);
+
+      // Filter by old speaker ID (including null for unknown speakers)
+      if (oldSpeakerId != null) {
+        query = query.eq('speaker_id', oldSpeakerId);
+      } else {
+        query = query.isFilter('speaker_id', null);
+      }
+
+      // Filter by start time if provided
+      if (fromTime != null) {
+        query = query.gte('start_time', fromTime);
+      }
+
+      // Execute update and get count
+      final response = await query.select('id');
+
+      // Return the count of updated records
+      return (response as List).length;
+    } catch (e) {
+      throw Exception('Failed to bulk update transcript speaker: $e');
+    }
+  }
+
   // ====================
   // STORAGE
   // ====================

@@ -39,10 +39,17 @@ class SpeakerSelectionBottomSheet extends StatefulWidget {
       _SpeakerSelectionBottomSheetState();
 }
 
+enum UpdateRange {
+  thisOnly,      // 이 구간만
+  fromThisOn,    // 이후 구간부터
+  all,           // 전체 구간
+}
+
 class _SpeakerSelectionBottomSheetState
     extends State<SpeakerSelectionBottomSheet> {
   String _searchQuery = '';
   bool _isUpdating = false;
+  UpdateRange _selectedRange = UpdateRange.thisOnly;
 
   @override
   void initState() {
@@ -102,6 +109,66 @@ class _SpeakerSelectionBottomSheetState
                   ],
                 ),
               ),
+              // Range selection section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '적용 범위',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<UpdateRange>(
+                      segments: const [
+                        ButtonSegment<UpdateRange>(
+                          value: UpdateRange.thisOnly,
+                          label: Text('이 구간만', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.edit, size: 16),
+                        ),
+                        ButtonSegment<UpdateRange>(
+                          value: UpdateRange.fromThisOn,
+                          label: Text('이후 구간', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.arrow_forward, size: 16),
+                        ),
+                        ButtonSegment<UpdateRange>(
+                          value: UpdateRange.all,
+                          label: Text('전체 구간', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.select_all, size: 16),
+                        ),
+                      ],
+                      selected: {_selectedRange},
+                      onSelectionChanged: (Set<UpdateRange> newSelection) {
+                        setState(() {
+                          _selectedRange = newSelection.first;
+                        });
+                      },
+                    ),
+                    if (_selectedRange == UpdateRange.fromThisOn)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '현재 시간(${widget.transcript.formattedStartTime}) 이후의 같은 화자 구간 모두 변경',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        ),
+                      ),
+                    if (_selectedRange == UpdateRange.all)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '회의 전체에서 같은 화자의 모든 구간 변경',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 16),
               // Search field
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -290,9 +357,9 @@ class _SpeakerSelectionBottomSheetState
       margin: const EdgeInsets.only(bottom: 8),
       color: isCurrentSpeaker ? Colors.grey.shade100 : null,
       child: ListTile(
-        leading: CircleAvatar(
+        leading: const CircleAvatar(
           backgroundColor: Colors.grey,
-          child: const Icon(Icons.person_outline, color: Colors.white),
+          child: Icon(Icons.person_outline, color: Colors.white),
         ),
         title: Row(
           children: [
@@ -320,21 +387,62 @@ class _SpeakerSelectionBottomSheetState
 
     try {
       final meetingProvider = context.read<MeetingProvider>();
-      final success = await meetingProvider.updateTranscriptSpeaker(
-        widget.transcript.id,
-        speakerId: speakerId,
-        speakerName: speakerName,
-      );
+      bool success;
+      int updatedCount = 0;
+
+      switch (_selectedRange) {
+        case UpdateRange.thisOnly:
+          // Update only this transcript
+          success = await meetingProvider.updateTranscriptSpeaker(
+            widget.transcript.id,
+            speakerId: speakerId,
+            speakerName: speakerName,
+          );
+          updatedCount = success ? 1 : 0;
+          break;
+
+        case UpdateRange.fromThisOn:
+          // Update this and all future transcripts with the same speaker
+          updatedCount = await meetingProvider.bulkUpdateTranscriptSpeaker(
+            meetingId: widget.transcript.meetingId,
+            oldSpeakerId: widget.transcript.speakerId,
+            newSpeakerId: speakerId,
+            newSpeakerName: speakerName,
+            fromTime: widget.transcript.startTime,
+          );
+          success = updatedCount > 0;
+          break;
+
+        case UpdateRange.all:
+          // Update all transcripts with the same speaker
+          updatedCount = await meetingProvider.bulkUpdateTranscriptSpeaker(
+            meetingId: widget.transcript.meetingId,
+            oldSpeakerId: widget.transcript.speakerId,
+            newSpeakerId: speakerId,
+            newSpeakerName: speakerName,
+          );
+          success = updatedCount > 0;
+          break;
+      }
 
       if (success && mounted) {
         widget.onSpeakerChanged?.call();
         Navigator.pop(context);
 
+        String message;
+        if (_selectedRange == UpdateRange.thisOnly) {
+          message = speakerName != null
+              ? '화자가 "$speakerName"(으)로 변경되었습니다'
+              : '화자가 "Unknown"으로 변경되었습니다';
+        } else {
+          message = speakerName != null
+              ? '$updatedCount개 구간의 화자가 "$speakerName"(으)로 변경되었습니다'
+              : '$updatedCount개 구간의 화자가 "Unknown"으로 변경되었습니다';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(speakerName != null
-                ? '화자가 "$speakerName"(으)로 변경되었습니다'
-                : '화자가 "Unknown"으로 변경되었습니다'),
+            content: Text(message),
             duration: const Duration(seconds: 2),
           ),
         );

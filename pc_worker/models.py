@@ -129,6 +129,10 @@ class MeetingSummary(BaseModel):
     key_points: List[str] = Field(default_factory=list)
     action_items: List[str] = Field(default_factory=list)
     topics: List[str] = Field(default_factory=list)
+    categories: List[str] = Field(
+        default_factory=list,
+        description="Auto-classified categories (0-3): 현황, 배경, 논의, 문제점, 의견, 결의"
+    )
     sentiment: Optional[str] = None
     created_at: Optional[datetime] = None
     model_used: Optional[str] = None
@@ -139,6 +143,20 @@ class MeetingSummary(BaseModel):
         if not v or len(v.strip()) == 0:
             raise ValueError("Summary cannot be empty")
         return v
+
+    @validator('categories')
+    def validate_categories(cls, v):
+        """Ensure categories are valid and limited to 0-3 items"""
+        valid_categories = {"현황", "배경", "논의", "문제점", "의견", "결의"}
+
+        # Filter valid categories
+        validated = [cat for cat in v if cat in valid_categories]
+
+        # Limit to maximum 3 categories
+        if len(validated) > 3:
+            validated = validated[:3]
+
+        return validated
 
 
 class ProcessingResult(BaseModel):

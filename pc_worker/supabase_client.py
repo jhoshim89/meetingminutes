@@ -228,6 +228,72 @@ class SupabaseClient:
             logger.error(f"Unexpected error updating meeting tags: {e}")
             return False
 
+    async def create_meeting_from_local(
+        self,
+        title: str,
+        audio_filename: str,
+        user_id: Optional[str] = None
+    ) -> Dict:
+        """
+        Create a meeting record for locally detected audio file.
+
+        Args:
+            title: Meeting title (usually derived from filename)
+            audio_filename: Original audio filename
+            user_id: Optional user ID (uses default if not provided)
+
+        Returns:
+            Created meeting data with id, user_id
+
+        Raises:
+            SupabaseQueryError: If creation fails
+        """
+        try:
+            # If no user_id provided, get the first user (for local processing)
+            if not user_id:
+                user_response = await asyncio.to_thread(
+                    lambda: self.client.table("profiles")
+                    .select("id")
+                    .limit(1)
+                    .execute()
+                )
+                if user_response.data:
+                    user_id = user_response.data[0]["id"]
+                else:
+                    raise SupabaseQueryError("No user found for local meeting creation")
+
+            meeting_data = {
+                "title": title,
+                "user_id": user_id,
+                "status": "pending",
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
+            }
+
+            response = await asyncio.to_thread(
+                lambda: self.client.table("meetings")
+                .insert(meeting_data)
+                .execute()
+            )
+
+            if response.data:
+                created_meeting = response.data[0]
+                logger.info(
+                    f"Created meeting from local file: {created_meeting['id']}",
+                    title=title,
+                    filename=audio_filename
+                )
+                return created_meeting
+
+            raise SupabaseQueryError("No data returned from meeting creation")
+
+        except APIError as e:
+            logger.error(f"Supabase API error creating meeting: {e}")
+            raise SupabaseQueryError(f"Failed to create meeting: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error creating meeting: {e}")
+            raise SupabaseQueryError(f"Unexpected error: {e}")
+
     async def get_meeting_audio_url(self, meeting_id: str) -> Optional[str]:
         """
         Get audio file URL from meeting record

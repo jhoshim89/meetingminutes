@@ -74,6 +74,11 @@ class SummaryGenerationError(PCWorkerException):
     pass
 
 
+class DocumentGenerationError(PCWorkerException):
+    """Raised when Word document generation fails"""
+    pass
+
+
 class ValidationError(PCWorkerException):
     """Raised when data validation fails"""
     pass

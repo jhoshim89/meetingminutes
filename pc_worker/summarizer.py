@@ -42,6 +42,16 @@ class OllamaSummarizer:
     Chunks transcript intelligently and generates comprehensive summaries
     """
 
+    # Valid meeting categories (6 types)
+    VALID_CATEGORIES = [
+        "현황",   # Current status, progress reports
+        "배경",   # Context, background, history
+        "논의",   # Discussion, review, opinion exchange
+        "문제점", # Issues, obstacles, difficulties
+        "의견",   # Suggestions, ideas, personal views
+        "결의"    # Decisions, agreements, final conclusions
+    ]
+
     # Korean-optimized summarization prompt
     KOREAN_SYSTEM_PROMPT = """당신은 회의 기록을 분석하는 전문 회의 요약 전문가입니다.
 
@@ -49,7 +59,8 @@ class OllamaSummarizer:
 1. 회의의 핵심 내용을 명확하고 간결하게 요약하기
 2. 중요한 결정사항과 액션 아이템 식별
 3. 논의된 주요 주제와 결론 정리
-4. 한국어로 자연스럽고 전문적인 표현 사용
+4. 회의 내용을 적절한 카테고리로 자동 분류
+5. 한국어로 자연스럽고 전문적인 표현 사용
 
 요약 규칙:
 - 길이: 최소 100자, 최대 1000자
@@ -74,7 +85,20 @@ class OllamaSummarizer:
 [액션 아이템]
 - 담당자: 작업 내용
 - 담당자: 작업 내용
-- ..."""
+- ...
+
+[카테고리]
+회의 내용을 가장 잘 설명하는 카테고리를 0~3개만 선택하세요 (가장 관련 있는 것만):
+- 현황: 현재 상태, 진행 상황 보고
+- 배경: 맥락, 이유, 히스토리 설명
+- 논의: 토론, 검토, 의견 교환
+- 문제점: 이슈, 장애물, 어려움
+- 의견: 제안, 아이디어, 개인 견해
+- 결의: 결정사항, 합의, 최종 결론
+
+선택한 카테고리 (0~3개):
+- (선택한 카테고리명)
+- (선택한 카테고리명)"""
 
     def __init__(
         self,
@@ -437,6 +461,62 @@ class OllamaSummarizer:
             logger.warning(f"Failed to extract action items: {e}")
             return []
 
+    async def _extract_categories(self, transcript: str, summary: str) -> List[str]:
+        """
+        Extract categories from meeting content (0-3 categories)
+
+        Args:
+            transcript: Full transcript
+            summary: Generated summary
+
+        Returns:
+            List of categories (0-3 items from VALID_CATEGORIES)
+        """
+        try:
+            prompt = f"""다음 회의 요약을 보고, 가장 관련 있는 카테고리를 0~3개만 선택하세요.
+
+회의 요약:
+{summary}
+
+회의 내용:
+{transcript[:1500]}...
+
+카테고리 선택지:
+- 현황: 현재 상태, 진행 상황 보고
+- 배경: 맥락, 이유, 히스토리 설명
+- 논의: 토론, 검토, 의견 교환
+- 문제점: 이슈, 장애물, 어려움
+- 의견: 제안, 아이디어, 개인 견해
+- 결의: 결정사항, 합의, 최종 결론
+
+선택한 카테고리 (0~3개, 가장 관련있는 것만 선택):"""
+
+            response = await self._call_ollama_async(prompt)
+
+            # Parse response and extract valid categories
+            categories = []
+            for line in response.split("\n"):
+                line = line.strip().lstrip("- •*").strip()
+                if not line:
+                    continue
+
+                # Check if line contains any valid category
+                for category in self.VALID_CATEGORIES:
+                    if category in line:
+                        if category not in categories:
+                            categories.append(category)
+                        break
+
+            # Limit to maximum 3 categories
+            categories = categories[:3]
+
+            logger.debug(f"Extracted categories: {categories}")
+            return categories
+
+        except Exception as e:
+            logger.warning(f"Failed to extract categories: {e}")
+            return []
+
     def _validate_summary_length(self, summary: str) -> bool:
         """
         Validate that summary meets length requirements
@@ -509,11 +589,13 @@ class OllamaSummarizer:
             # Extract details if requested
             key_points = []
             action_items = []
+            categories = []
 
             if extract_details:
-                logger.debug("Extracting key points and action items")
+                logger.debug("Extracting key points, action items, and categories")
                 key_points = await self._extract_key_points(transcript, summary_text)
                 action_items = await self._extract_action_items(transcript, summary_text)
+                categories = await self._extract_categories(transcript, summary_text)
 
             # Create summary object
             processing_time = time.time() - start_time
@@ -522,6 +604,7 @@ class OllamaSummarizer:
                 summary=summary_text,
                 key_points=key_points,
                 action_items=action_items,
+                categories=categories,
                 topics=[],  # Could be extracted from key_points
                 sentiment=None,  # Could be analyzed separately
                 model_used=f"{self.model_name} via Ollama"
@@ -533,7 +616,9 @@ class OllamaSummarizer:
                 duration_s=f"{processing_time:.2f}",
                 summary_length=len(summary_text),
                 key_points_count=len(key_points),
-                action_items_count=len(action_items)
+                action_items_count=len(action_items),
+                categories_count=len(categories),
+                categories=", ".join(categories) if categories else "없음"
             )
 
             return summary

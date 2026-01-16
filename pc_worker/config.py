@@ -61,6 +61,15 @@ MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "1"))
 POLLING_INTERVAL_SECONDS = int(os.getenv("POLLING_INTERVAL_SECONDS", "60"))
 
+# Folder Monitoring Configuration
+WATCH_FOLDER_PATH = os.getenv("WATCH_FOLDER_PATH", "")
+AUDIO_EXTENSIONS = [".m4a", ".wav", ".mp3", ".mp4", ".webm"]
+FILE_STABLE_CHECK_INTERVAL = float(os.getenv("FILE_STABLE_CHECK_INTERVAL", "2.0"))  # seconds
+FILE_STABLE_CHECK_COUNT = int(os.getenv("FILE_STABLE_CHECK_COUNT", "3"))  # number of checks
+
+# Word Document Output Configuration
+WORD_OUTPUT_PATH = os.getenv("WORD_OUTPUT_PATH", "./output")
+
 # Model Configuration
 WHISPERX_MODEL = "large-v2"
 DIARIZATION_MODEL = "pyannote/speaker-diarization-3.0"
