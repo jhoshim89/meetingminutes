@@ -120,6 +120,9 @@ class Speaker(BaseModel):
     meeting_ids: List[str] = Field(default_factory=list, description="Meetings this speaker appeared in")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Speaker matching fields
+    matched_speaker_id: Optional[str] = Field(None, description="Matched known speaker ID from DB")
+    match_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence of speaker match")
 
 
 class MeetingSummary(BaseModel):

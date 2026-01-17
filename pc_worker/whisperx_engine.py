@@ -32,6 +32,9 @@ class WhisperXConfig:
     batch_size: int = 16
     confidence_threshold: float = 0.4  # 한국어는 0.4 권장 (영어 대비 신뢰도 낮게 나옴)
     chunk_length_seconds: int = 30
+    # VAD (Voice Activity Detection) options - lower values = more sensitive
+    vad_onset: float = 0.3  # Speech start threshold (default 0.5)
+    vad_offset: float = 0.2  # Speech end threshold (default 0.363)
 
     def __post_init__(self):
         """Validate configuration"""
@@ -81,14 +84,22 @@ class WhisperXEngine:
         logger.log_operation_start("initialize_whisperx_model")
 
         try:
-            # Load main transcription model
+            # Load main transcription model with VAD options
             logger.info(f"Loading WhisperX model: {self.config.model_size}")
+            logger.info(f"VAD options: onset={self.config.vad_onset}, offset={self.config.vad_offset}")
+
+            vad_options = {
+                "vad_onset": self.config.vad_onset,
+                "vad_offset": self.config.vad_offset
+            }
+
             self.model = await asyncio.to_thread(
                 whisperx.load_model,
                 self.config.model_size,
                 self.config.device,
                 compute_type=self.config.compute_type,
-                download_root=str(MODEL_CACHE_DIR)
+                download_root=str(MODEL_CACHE_DIR),
+                vad_options=vad_options
             )
 
             # Load alignment model for word-level timestamps (Korean)
