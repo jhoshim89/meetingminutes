@@ -114,7 +114,9 @@ class Speaker(BaseModel):
     """Speaker profile with identification data"""
     id: str
     name: Optional[str] = None
+    title: Optional[str] = Field(None, description="Job title or position (e.g., 학장, 부학장)")
     user_id: Optional[str] = None
+    is_registered: bool = Field(default=False, description="True if pre-registered speaker")
     embedding: Optional[SpeakerEmbedding] = None
     audio_samples: List[str] = Field(default_factory=list, description="URLs to audio samples")
     meeting_ids: List[str] = Field(default_factory=list, description="Meetings this speaker appeared in")

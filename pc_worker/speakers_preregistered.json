@@ -1,0 +1,50 @@
+{
+  "description": "회의 참석자 사전 등록 목록",
+  "created_at": "2026-01-18",
+  "speakers": [
+    {
+      "name": "김석",
+      "title": "학장"
+    },
+    {
+      "name": "강창근",
+      "title": "부학장"
+    },
+    {
+      "name": "심재호",
+      "title": "부학장"
+    },
+    {
+      "name": "김우현",
+      "title": null
+    },
+    {
+      "name": "김종현",
+      "title": null
+    },
+    {
+      "name": "이동빈",
+      "title": null
+    },
+    {
+      "name": "이희천",
+      "title": null
+    },
+    {
+      "name": "조규완",
+      "title": null
+    },
+    {
+      "name": "홍일화",
+      "title": null
+    },
+    {
+      "name": "황태성",
+      "title": null
+    },
+    {
+      "name": "채난희",
+      "title": null
+    }
+  ]
+}
