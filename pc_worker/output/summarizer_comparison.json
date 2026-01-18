@@ -1,0 +1,20 @@
+[
+  {
+    "model": "qwen2.5:7b",
+    "error": "'cp949' codec can't encode character '\\u8fd9' in position 601: illegal multibyte sequence"
+  },
+  {
+    "model": "gemma2:9b",
+    "time_seconds": 23.5,
+    "summary_length": 902,
+    "tokens": 551,
+    "output_file": "D:\\Productions\\meetingminutes\\pc_worker\\output\\summary_gemma2_9b.txt"
+  },
+  {
+    "model": "llama3:8b",
+    "time_seconds": 16.4,
+    "summary_length": 3236,
+    "tokens": 555,
+    "output_file": "D:\\Productions\\meetingminutes\\pc_worker\\output\\summary_llama3_8b.txt"
+  }
+]

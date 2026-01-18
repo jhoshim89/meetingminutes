@@ -32,9 +32,13 @@ class WhisperXConfig:
     batch_size: int = 16
     confidence_threshold: float = 0.4  # 한국어는 0.4 권장 (영어 대비 신뢰도 낮게 나옴)
     chunk_length_seconds: int = 30
-    # VAD (Voice Activity Detection) options - lower values = more sensitive
-    vad_onset: float = 0.3  # Speech start threshold (default 0.5)
-    vad_offset: float = 0.2  # Speech end threshold (default 0.363)
+    # VAD (Voice Activity Detection) options
+    # WhisperX 기본값: onset=0.5, offset=0.363 (영어 기준)
+    # 한국어 회의 테스트 결과: 0.5→0.1로 변경 시 텍스트 출력 18%→84% 개선
+    # 노이즈 환경에서는 0.3-0.4 사용 권장 (너무 낮으면 노이즈도 음성으로 인식)
+    vad_onset: float = 0.1  # Speech start threshold (default 0.5, 한국어 조용한 환경 0.1, 노이즈 환경 0.3-0.4)
+    vad_offset: float = 0.1  # Speech end threshold (default 0.363, 한국어 권장 0.1)
+    vad_chunk_size: int = 30  # VAD chunk size in seconds (silero/pyannote용)
 
     def __post_init__(self):
         """Validate configuration"""
@@ -90,7 +94,8 @@ class WhisperXEngine:
 
             vad_options = {
                 "vad_onset": self.config.vad_onset,
-                "vad_offset": self.config.vad_offset
+                "vad_offset": self.config.vad_offset,
+                "chunk_size": self.config.vad_chunk_size
             }
 
             self.model = await asyncio.to_thread(

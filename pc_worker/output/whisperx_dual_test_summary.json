@@ -1,0 +1,39 @@
+{
+  "baseline_clovanote_chars": 30067,
+  "original_whisperx_chars": 5422,
+  "tests": [
+    {
+      "test_name": "extreme_vad",
+      "model": "large-v3-turbo",
+      "vad_onset": 0.01,
+      "vad_offset": 0.01,
+      "transcribe_time_seconds": 58.40005612373352,
+      "segment_count": 165,
+      "total_text_length": 25116,
+      "ratio_vs_clovanote": 83.53344197957894,
+      "improvement_vs_original": 363.2239026189598
+    },
+    {
+      "test_name": "korean_model",
+      "model": "medium (fallback)",
+      "vad_onset": 0.1,
+      "vad_offset": 0.1,
+      "transcribe_time_seconds": 60.9628689289093,
+      "segment_count": 165,
+      "total_text_length": 25379,
+      "ratio_vs_clovanote": 84.40815512023148,
+      "improvement_vs_original": 368.0745112504611
+    },
+    {
+      "test_name": "no_vad",
+      "model": "large-v3-turbo",
+      "vad_onset": 0.001,
+      "vad_offset": 0.001,
+      "transcribe_time_seconds": 65.42414283752441,
+      "segment_count": 165,
+      "total_text_length": 25346,
+      "ratio_vs_clovanote": 84.2984002394652,
+      "improvement_vs_original": 367.46587974917
+    }
+  ]
+}
