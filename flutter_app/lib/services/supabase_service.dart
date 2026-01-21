@@ -17,10 +17,10 @@ class SupabaseService {
 
   // Auth helpers
   User? get currentUser => client.auth.currentUser;
-  // TODO: 개발용 하드코딩 - 나중에 제거
-  // PC Worker와 같은 user_id 사용하도록 임시 설정
-  static const String _devUserId = '2be1566f-8d85-4ea9-ac1b-b11c8fce7840';
-  String? get userId => _devUserId; // currentUser?.id;
+  
+  // Use the actual authenticated user's ID
+  String? get userId => currentUser?.id;
+  
   bool get isAuthenticated => currentUser != null;
 
   // ====================
