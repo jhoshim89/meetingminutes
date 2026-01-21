@@ -355,6 +355,28 @@ class SupabaseService {
     }
   }
 
+  /// Create a new speaker with the given name
+  /// Returns the newly created speaker
+  Future<SpeakerModel> createSpeaker({
+    required String name,
+    String? title,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await client.from('speakers').insert({
+        'user_id': userId,
+        'name': name,
+        'title': title,
+        'is_registered': true,
+        'sample_count': 0,
+        'metadata': metadata,
+      }).select().single();
+      return SpeakerModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to create speaker: $e');
+    }
+  }
+
   // ====================
   // TRANSCRIPTS
   // ====================

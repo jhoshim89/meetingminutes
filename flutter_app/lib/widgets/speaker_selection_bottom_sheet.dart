@@ -49,6 +49,7 @@ class _SpeakerSelectionBottomSheetState
     extends State<SpeakerSelectionBottomSheet> {
   String _searchQuery = '';
   bool _isUpdating = false;
+  bool _isCreatingSpeaker = false;
   UpdateRange _selectedRange = UpdateRange.thisOnly;
 
   @override
@@ -243,15 +244,7 @@ class _SpeakerSelectionBottomSheetState
                         }),
 
                         if (filteredSpeakers.isEmpty && _searchQuery.isNotEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Center(
-                              child: Text(
-                                '검색 결과가 없습니다',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                          ),
+                          _buildAddNewSpeakerButton(_searchQuery),
 
                         const SizedBox(height: 16),
                       ],
@@ -374,6 +367,48 @@ class _SpeakerSelectionBottomSheetState
     );
   }
 
+  /// Build button to add a new speaker when search returns no results
+  Widget _buildAddNewSpeakerButton(String searchQuery) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Text(
+            '검색 결과가 없습니다',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isCreatingSpeaker || _isUpdating
+                  ? null
+                  : () => _createAndSelectSpeaker(searchQuery),
+              icon: _isCreatingSpeaker
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.person_add),
+              label: Text(
+                _isCreatingSpeaker ? '추가 중...' : '+ "$searchQuery" 화자 추가',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectSpeaker(String? speakerId, String? speakerName) async {
     // Skip if already selected
     if (speakerId == widget.transcript.speakerId) {
@@ -458,6 +493,52 @@ class _SpeakerSelectionBottomSheetState
       if (mounted) {
         setState(() {
           _isUpdating = false;
+        });
+      }
+    }
+  }
+
+  /// Create a new speaker and select it for the current transcript
+  Future<void> _createAndSelectSpeaker(String name) async {
+    final trimmedName = name.trim();
+
+    // Validate name length (2-50 characters)
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('화자 이름은 2-50자여야 합니다'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isCreatingSpeaker = true;
+    });
+
+    try {
+      final speakerProvider = context.read<SpeakerProvider>();
+      final newSpeaker = await speakerProvider.createSpeaker(trimmedName);
+
+      if (newSpeaker == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('화자 생성에 실패했습니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Select the newly created speaker for the transcript
+      await _selectSpeaker(newSpeaker.id, newSpeaker.displayName);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingSpeaker = false;
         });
       }
     }
