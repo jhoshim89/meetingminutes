@@ -95,6 +95,31 @@ class SpeakerProvider with ChangeNotifier {
     }
   }
 
+  Future<SpeakerModel?> createSpeaker(String name) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final newSpeaker = await _supabaseService.createSpeaker(name);
+
+      // Add to lists
+      _speakers.insert(0, newSpeaker);
+      
+      _error = null;
+      notifyListeners();
+      return newSpeaker;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Create speaker error: $e');
+      notifyListeners();
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> updateSpeaker(
     String speakerId, {
     String? name,

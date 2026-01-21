@@ -28,7 +28,8 @@ class TranscriptModel {
       id: json['id'] as String,
       meetingId: json['meeting_id'] as String,
       speakerId: json['speaker_id'] as String?,
-      speakerName: json['speaker_name'] as String?,
+      speakerName: json['speaker_name'] as String? ??
+          (json['speakers'] is Map ? json['speakers']['name'] as String? : null),
       text: json['text'] as String,
       startTime: (json['start_time'] as num).toDouble(),
       endTime: (json['end_time'] as num).toDouble(),

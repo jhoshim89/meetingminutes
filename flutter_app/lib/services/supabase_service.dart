@@ -329,6 +329,21 @@ class SupabaseService {
     }
   }
 
+  Future<SpeakerModel> createSpeaker(String name) async {
+    try {
+      final response = await client.from('speakers').insert({
+        'user_id': userId,
+        'name': name,
+        'is_registered': true,
+        'sample_count': 0,
+      }).select().single();
+
+      return SpeakerModel.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to create speaker: $e');
+    }
+  }
+
   Future<SpeakerModel> updateSpeaker(
     String speakerId, {
     String? name,
@@ -366,7 +381,7 @@ class SupabaseService {
     try {
       final response = await client
           .from('transcripts')
-          .select()
+          .select('*, speakers(name)')
           .eq('meeting_id', meetingId)
           .order('start_time', ascending: true);
 
@@ -391,9 +406,11 @@ class SupabaseService {
       // Allow setting speakerId to null (unknown speaker)
       updates['speaker_id'] = speakerId;
 
+      /* speaker_name column does not exist in transcripts table
       if (speakerName != null) {
         updates['speaker_name'] = speakerName;
       }
+      */
 
       final response = await client
           .from('transcripts')
@@ -424,9 +441,11 @@ class SupabaseService {
       // Allow setting speakerId to null (unknown speaker)
       updates['speaker_id'] = newSpeakerId;
 
+      /* speaker_name column does not exist in transcripts table
       if (newSpeakerName != null) {
         updates['speaker_name'] = newSpeakerName;
       }
+      */
 
       // Build query
       var query = client

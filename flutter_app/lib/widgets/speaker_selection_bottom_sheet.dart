@@ -217,6 +217,12 @@ class _SpeakerSelectionBottomSheetState
                       controller: scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
+                        // Create new speaker option (if search query is not empty)
+                        if (_searchQuery.isNotEmpty) ...[
+                          _buildCreateSpeakerTile(context),
+                          const SizedBox(height: 8),
+                        ],
+
                         // Recommended speakers section
                         if (similarSpeakers.isNotEmpty &&
                             _searchQuery.isEmpty) ...[
@@ -232,22 +238,25 @@ class _SpeakerSelectionBottomSheetState
                         ],
 
                         // All speakers section
-                        _buildSectionHeader('전체 화자', Icons.people),
+                        if (_searchQuery.isEmpty)
+                          _buildSectionHeader('전체 화자', Icons.people),
 
                         // Keep unknown option
-                        _buildUnknownSpeakerTile(),
+                        if (_searchQuery.isEmpty) ...[
+                          _buildUnknownSpeakerTile(),
+                        ],
 
                         // All registered speakers
                         ...filteredSpeakers.map((speaker) {
                           return _buildSpeakerTile(speaker);
                         }),
 
-                        if (filteredSpeakers.isEmpty && _searchQuery.isNotEmpty)
+                        if (filteredSpeakers.isEmpty && _searchQuery.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(32),
                             child: Center(
                               child: Text(
-                                '검색 결과가 없습니다',
+                                '등록된 화자가 없습니다',
                                 style: TextStyle(color: Colors.grey),
                               ),
                             ),
@@ -456,6 +465,75 @@ class _SpeakerSelectionBottomSheetState
       }
     } finally {
       if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildCreateSpeakerTile(BuildContext context) {
+    return Card(
+      color: Colors.blue.withOpacity(0.05),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Colors.blue, width: 1),
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.blue,
+          child: Icon(Icons.add, color: Colors.white),
+        ),
+        title: Text(
+          '"$_searchQuery" 추가하기',
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: const Text('새로운 화자로 등록하고 선택합니다'),
+        onTap: _isUpdating ? null : () => _createNewSpeaker(context),
+      ),
+    );
+  }
+
+  Future<void> _createNewSpeaker(BuildContext context) async {
+    final name = _searchQuery.trim();
+    if (name.isEmpty) return;
+
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      final provider = context.read<SpeakerProvider>();
+      
+      // Create the speaker
+      final newSpeaker = await provider.createSpeaker(name);
+
+      if (newSpeaker != null && mounted) {
+        // Select the new speaker
+        await _selectSpeaker(newSpeaker.id, newSpeaker.name);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('화자 생성에 실패했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
         setState(() {
           _isUpdating = false;
         });
