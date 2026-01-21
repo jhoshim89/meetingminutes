@@ -34,6 +34,7 @@ class SupabaseService {
     String? templateId,
   }) async {
     try {
+      if (userId == null) return [];
       var query = client.from('meetings').select().eq('user_id', userId!);
 
       if (status != null) {
@@ -79,6 +80,7 @@ class SupabaseService {
     List<String>? tags,
   }) async {
     try {
+      if (userId == null) throw Exception('User not authenticated');
       final response = await client.from('meetings').insert({
         'user_id': userId,
         'title': title,
@@ -559,6 +561,7 @@ class SupabaseService {
 
   Future<List<TemplateModel>> getTemplates() async {
     try {
+      if (userId == null) return [];
       final response = await client
           .from('templates')
           .select()
