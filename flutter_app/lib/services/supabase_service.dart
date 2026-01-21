@@ -36,7 +36,7 @@ class SupabaseService {
     String? templateId,
   }) async {
     try {
-      debugPrint('DEBUG: SupabaseService userId: $userId');
+      print('DEBUG: SupabaseService userId: $userId');
       if (userId == null) return [];
       var query = client.from('meetings').select().eq('user_id', userId!);
 
