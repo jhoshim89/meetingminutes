@@ -26,7 +26,7 @@ from logger import get_logger
 from supabase_client import get_supabase_client
 from audio_processor import get_audio_processor
 from stt_pipeline import get_stt_pipeline, STTPipeline
-from summarizer import get_summarizer
+from hybrid_summarizer import HybridSummarizer
 from realtime_worker import get_realtime_worker
 from speaker_matcher import get_speaker_matcher, SpeakerMatcher
 from folder_monitor import get_folder_monitor, FolderMonitor
@@ -38,8 +38,7 @@ from exceptions import (
     AudioPreprocessingError,
     TranscriptionError,
     DiarizationError,
-    SupabaseQueryError,
-    SummaryGenerationError
+    SupabaseQueryError
 )
 from utils import (
     cleanup_temp_files,
@@ -71,7 +70,7 @@ class PCWorker:
             remove_silence=False
         )
         self.stt_pipeline: Optional[STTPipeline] = None  # Lazy initialization
-        self.summarizer = get_summarizer() if SUMMARIZATION_ENABLED else None
+        self.summarizer = HybridSummarizer() if SUMMARIZATION_ENABLED else None
         self.realtime = get_realtime_worker(self.supabase.client)
         self.speaker_matcher = get_speaker_matcher(self.supabase.client)
         self.word_generator = get_word_generator(output_dir=WORD_OUTPUT_PATH)
@@ -87,6 +86,21 @@ class PCWorker:
             memory_gb=f"{system_info.memory_available_gb:.2f}",
             summarization_enabled=SUMMARIZATION_ENABLED
         )
+
+    def _segments_to_text(self, segments) -> str:
+        """TranscriptSegment 리스트를 텍스트로 변환"""
+        lines = []
+        for seg in segments:
+            start = getattr(seg, 'start_time', 0)
+            end = getattr(seg, 'end_time', 0)
+            text = getattr(seg, 'text', '')
+            speaker = getattr(seg, 'speaker_label', '') or getattr(seg, 'speaker_id', '')
+
+            if speaker:
+                lines.append(f"[{start:.1f}s-{end:.1f}s] {speaker}: {text}")
+            else:
+                lines.append(f"[{start:.1f}s-{end:.1f}s] {text}")
+        return '\n'.join(lines)
 
     async def _ensure_stt_pipeline(self) -> STTPipeline:
         """Ensure STT pipeline is initialized (lazy loading)"""
@@ -268,11 +282,22 @@ class PCWorker:
             summary = None
             if SUMMARIZATION_ENABLED and self.summarizer and pipeline_result.transcript.segments:
                 try:
-                    summary = await self.summarizer.summarize_with_retry(
-                        segments=pipeline_result.transcript.segments,
-                        meeting_id=meeting_id,
-                        extract_details=True
+                    # segments를 텍스트로 변환
+                    transcript_text = self._segments_to_text(pipeline_result.transcript.segments)
+
+                    # sync 함수를 async로 실행
+                    hybrid_summary = await asyncio.to_thread(
+                        self.summarizer.summarize,
+                        transcript_text,
+                        verbose=False
                     )
+
+                    # MeetingSummary 호환 딕셔너리로 변환
+                    summary = self.summarizer.to_meeting_summary(
+                        hybrid_summary,
+                        meeting_id=meeting_id
+                    )
+
                     if summary:
                         await self.supabase.save_summary(meeting_id, summary)
                 except Exception as e:
@@ -560,15 +585,25 @@ class PCWorker:
                         # Don't fail processing if embedding save fails
                         logger.warning(f"Failed to save speaker embeddings for {meeting_id}: {e}")
 
-            # Step 9: Generate summary with Ollama + Gemma 2
+            # Step 9: Generate summary with HybridSummarizer
             summary = None
             if SUMMARIZATION_ENABLED and self.summarizer:
                 if pipeline_result.transcript.segments:
                     try:
-                        summary = await self.summarizer.summarize_with_retry(
-                            segments=pipeline_result.transcript.segments,
-                            meeting_id=meeting_id,
-                            extract_details=True
+                        # segments를 텍스트로 변환
+                        transcript_text = self._segments_to_text(pipeline_result.transcript.segments)
+
+                        # sync 함수를 async로 실행
+                        hybrid_summary = await asyncio.to_thread(
+                            self.summarizer.summarize,
+                            transcript_text,
+                            verbose=False
+                        )
+
+                        # MeetingSummary 호환 딕셔너리로 변환
+                        summary = self.summarizer.to_meeting_summary(
+                            hybrid_summary,
+                            meeting_id=meeting_id
                         )
 
                         if summary:
@@ -576,14 +611,14 @@ class PCWorker:
                             logger.log_meeting_event(
                                 meeting_id,
                                 "summary_generated",
-                                summary_length=len(summary.summary),
-                                key_points=len(summary.key_points),
-                                action_items=len(summary.action_items)
+                                summary_length=len(summary.get('summary', '')),
+                                key_points=len(summary.get('key_points', [])),
+                                action_items=len(summary.get('action_items', []))
                             )
                         else:
                             logger.warning(f"Summarization failed for {meeting_id} after retries")
 
-                    except SummaryGenerationError as e:
+                    except Exception as e:
                         # Log but don't fail the entire meeting if summary fails
                         logger.warning(f"Summary generation error for {meeting_id}: {e}")
 

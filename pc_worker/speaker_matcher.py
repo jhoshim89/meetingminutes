@@ -1,6 +1,6 @@
 """
 Speaker Matcher Module
-Handles automatic speaker matching using pyannote embeddings (768 dimensions)
+Handles automatic speaker matching using pyannote embeddings (512 dimensions)
 Compares new speakers with registered speakers using cosine similarity
 """
 
@@ -46,7 +46,7 @@ class SpeakerMatcher:
         Find similar speakers using cosine similarity on voice embeddings
 
         Args:
-            embedding: Voice embedding vector (768 dimensions)
+            embedding: Voice embedding vector (512 dimensions for pyannote 3.0)
             user_id: User ID to filter speakers
             threshold: Minimum similarity threshold (0.0 to 1.0)
             limit: Maximum number of results
@@ -65,9 +65,9 @@ class SpeakerMatcher:
         )
 
         try:
-            # Validate embedding dimensions
-            if len(embedding) != 768:
-                raise ValueError(f"Expected 768-dimensional embedding, got {len(embedding)}")
+            # Validate embedding dimensions (pyannote 3.0 uses 512-dim embeddings)
+            if len(embedding) != 512:
+                raise ValueError(f"Expected 512-dimensional embedding, got {len(embedding)}")
 
             # Convert embedding to proper format for pgvector
             embedding_str = "[" + ",".join(map(str, embedding)) + "]"
@@ -194,7 +194,7 @@ class SpeakerMatcher:
 
         Args:
             speaker_id: Speaker ID to update
-            embedding: Voice embedding vector (768 dimensions)
+            embedding: Voice embedding vector (512 dimensions for pyannote 3.0)
             confidence: Optional confidence score
             model_name: Model used to generate embedding
 
@@ -211,9 +211,9 @@ class SpeakerMatcher:
         )
 
         try:
-            # Validate embedding dimensions
-            if len(embedding) != 768:
-                raise ValueError(f"Expected 768-dimensional embedding, got {len(embedding)}")
+            # Validate embedding dimensions (pyannote 3.0 uses 512-dim embeddings)
+            if len(embedding) != 512:
+                raise ValueError(f"Expected 512-dimensional embedding, got {len(embedding)}")
 
             # Convert embedding to proper format for pgvector
             embedding_str = "[" + ",".join(map(str, embedding)) + "]"
@@ -279,9 +279,9 @@ class SpeakerMatcher:
         )
 
         try:
-            # Validate embedding dimensions
-            if len(new_embedding) != 768:
-                raise ValueError(f"Expected 768-dimensional embedding, got {len(new_embedding)}")
+            # Validate embedding dimensions (pyannote 3.0 uses 512-dim embeddings)
+            if len(new_embedding) != 512:
+                raise ValueError(f"Expected 512-dimensional embedding, got {len(new_embedding)}")
 
             # Validate weight
             if not 0.0 <= weight <= 1.0:

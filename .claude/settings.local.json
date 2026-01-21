@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(powershell -Command:*)",
-      "Bash(flutter pub get:*)"
+      "Bash(flutter pub get:*)",
+      "Bash(ollama:*)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(move \"D:\\\\Productions\\\\meetingminutes\\\\output\\\\학과회의.m4a\" \"D:\\\\Productions\\\\meetingminutes\\\\data\"\" && move \"D:Productionsmeetingminutesoutput시설과팀장님회의.m4a\" \"D:Productionsmeetingminutesdata\"\")",
+      "Bash(npm update:*)"
     ]
   },
   "outputStyle": "Explanatory"

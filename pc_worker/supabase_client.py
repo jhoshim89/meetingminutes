@@ -537,7 +537,11 @@ class SupabaseClient:
             SupabaseQueryError: If save fails
         """
         try:
-            summary_dict = summary.dict(exclude_none=True)
+            # Handle both dict and Pydantic model
+            if isinstance(summary, dict):
+                summary_dict = {k: v for k, v in summary.items() if v is not None}
+            else:
+                summary_dict = summary.dict(exclude_none=True)
             summary_dict["meeting_id"] = meeting_id
             summary_dict["created_at"] = datetime.now().isoformat()
 
