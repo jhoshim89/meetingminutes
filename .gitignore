@@ -32,6 +32,7 @@ pc_worker/*.egg-info/
 pc_worker/dist/
 pc_worker/build/
 pc_worker/logs/
+pc_worker/output/
 
 # ===== Environment & Secrets =====
 .env
