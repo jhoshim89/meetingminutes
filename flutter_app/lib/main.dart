@@ -21,6 +21,7 @@ import 'providers/appointment_provider.dart';
 import 'services/fcm_service.dart';
 
 void main() async {
+  print('VERSION: E2E TEST DEBUG 1.0');
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
