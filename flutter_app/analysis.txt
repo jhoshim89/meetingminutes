@@ -1,0 +1,165 @@
+Analyzing flutter_app...                                        
+
+warning - Unused import: 'package:flutter/foundation.dart' - lib\main.dart:2:8 - unused_import
+   info - 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead - lib\main.dart:6:1 - deprecated_member_use
+   info - Don't use web-only libraries outside Flutter web plugins - lib\main.dart:6:1 - avoid_web_libraries_in_flutter
+warning - Unused import: 'screens/meeting_detail_screen.dart' - lib\main.dart:9:8 - unused_import
+   info - Don't invoke 'print' in production code - lib\main.dart:24:3 - avoid_print
+   info - Parameter 'key' could be a super parameter - lib\main.dart:43:9 - use_super_parameters
+   info - Use 'const' with the constructor to improve performance - lib\main.dart:120:20 - prefer_const_constructors
+   info - Parameter 'key' could be a super parameter - lib\main.dart:162:9 - use_super_parameters
+warning - The value of the field '_initialAppointmentId' isn't used - lib\main.dart:171:11 - unused_field
+warning - The value of the field '_supabaseService' isn't used - lib\providers\recorder_provider.dart:14:25 - unused_field
+warning - Unused import: '../providers/meeting_provider.dart' - lib\screens\appointment_detail_screen.dart:5:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\screens\appointment_detail_screen.dart:15:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_detail_screen.dart:210:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_detail_screen.dart:309:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_detail_screen.dart:311:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_detail_screen.dart:455:39 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_detail_screen.dart:540:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_detail_screen.dart:546:17 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_detail_screen.dart:578:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_detail_screen.dart:579:38 - use_build_context_synchronously
+   info - Parameter 'key' could be a super parameter - lib\screens\appointment_form_screen.dart:14:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\screens\appointment_form_screen.dart:58:35 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\appointment_form_screen.dart:167:15 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\appointment_form_screen.dart:190:19 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screens\appointment_form_screen.dart:224:21 - prefer_const_constructors
+   info - Use 'const' literals as arguments to constructors of '@immutable' classes - lib\screens\appointment_form_screen.dart:225:33 - prefer_const_literals_to_create_immutables
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\appointment_form_screen.dart:266:15 - deprecated_member_use
+   info - The 'child' argument should be last in widget constructor invocations - lib\screens\appointment_form_screen.dart:317:17 - sort_child_properties_last
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_form_screen.dart:495:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\appointment_form_screen.dart:496:38 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:538:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:567:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:642:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:643:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:647:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\appointment_form_screen.dart:648:31 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\home_screen.dart:13:9 - use_super_parameters
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\home_screen.dart:90:19 - deprecated_member_use
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\screens\home_screen.dart:209:43 - invalid_null_aware_operator
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home_screen.dart:342:44 - deprecated_member_use
+warning - Unused import: '../providers/speaker_provider.dart' - lib\screens\meeting_detail_screen.dart:6:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\screens\meeting_detail_screen.dart:16:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\meeting_detail_screen.dart:230:22 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\screens\meeting_detail_screen.dart:270:77 - unnecessary_to_list_in_spreads
+   info - Unnecessary use of 'toList' in a spread - lib\screens\meeting_detail_screen.dart:276:76 - unnecessary_to_list_in_spreads
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\meeting_detail_screen.dart:287:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\meeting_detail_screen.dart:382:45 - deprecated_member_use
+warning - The declaration '_buildSummarySection' isn't referenced - lib\screens\meeting_detail_screen.dart:411:10 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\meeting_detail_screen.dart:469:36 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\recorder_screen.dart:12:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\screens\recorder_screen.dart:47:13 - use_build_context_synchronously
+   info - Use 'const' with the constructor to improve performance - lib\screens\recorder_screen.dart:143:33 - prefer_const_constructors
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\recorder_screen.dart:182:27 - deprecated_member_use
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\screens\recorder_screen.dart:311:63 - invalid_null_aware_operator
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\recorder_screen.dart:355:35 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\screens\recorder_screen.dart:475:35 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\scheduler_screen.dart:89:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\scheduler_screen.dart:309:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\scheduler_screen.dart:405:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\scheduler_screen.dart:623:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\scheduler_screen.dart:625:65 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\scheduler_screen.dart:665:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\scheduler_screen.dart:693:17 - deprecated_member_use
+warning - The value of the local variable 'colorScheme' isn't used - lib\screens\search_screen.dart:401:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\search_screen.dart:413:27 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\search_screen.dart:415:46 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\settings_screen.dart:7:9 - use_super_parameters
+warning - The value of the field '_supabaseService' isn't used - lib\screens\settings_screen.dart:14:25 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\settings_screen.dart:29:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\settings_screen.dart:34:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\settings_screen.dart:148:44 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screens\settings_screen.dart:254:18 - prefer_const_constructors
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:302:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:303:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:312:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:313:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:322:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\screens\settings_screen.dart:323:15 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\screens\speaker_manager_screen.dart:9:9 - use_super_parameters
+warning - The value of the field '_currentSpeaker' isn't used - lib\screens\speaker_manager_screen.dart:17:17 - unused_field
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\speaker_manager_screen.dart:86:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\speaker_manager_screen.dart:87:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\speaker_manager_screen.dart:175:38 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\screens\speaker_manager_screen.dart:180:21 - prefer_const_constructors
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\speaker_manager_screen.dart:226:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\speaker_manager_screen.dart:227:24 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\speaker_manager_screen.dart:231:22 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\speaker_manager_screen.dart:237:20 - use_build_context_synchronously
+warning - The value of the field '_isInitialized' isn't used - lib\services\audio_service.dart:22:8 - unused_field
+warning - Unused import: '../models/meeting_model.dart' - lib\services\realtime_service.dart:4:8 - unused_import
+warning - Unused import: 'package:flutter/foundation.dart' - lib\services\storage_service.dart:2:8 - unused_import
+warning - Unused import: '../models/meeting_model.dart' - lib\services\storage_service.dart:4:8 - unused_import
+warning - The value of the local variable 'uploadResponse' isn't used - lib\services\storage_service.dart:96:15 - unused_local_variable
+warning - The '!' will have no effect because the receiver can't be null - lib\services\storage_service.dart:120:26 - unnecessary_non_null_assertion
+   info - 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead - lib\services\storage_service_web.dart:4:1 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\services\supabase_service.dart:38:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\supabase_service.dart:187:7 - avoid_print
+  error - The method 'File' isn't defined for the type 'SupabaseService' - lib\services\supabase_service.dart:488:20 - undefined_method
+  error - Undefined name 'Directory' - lib\services\supabase_service.dart:550:23 - undefined_identifier
+  error - The method 'File' isn't defined for the type 'SupabaseService' - lib\services\supabase_service.dart:551:24 - undefined_method
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_io.dart:14:3 - avoid_print
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\wake_lock_service_web.dart:51:39 - unnecessary_null_comparison
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:90:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:93:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:103:5 - avoid_print
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\wake_lock_service_web.dart:123:20 - unnecessary_null_comparison
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:126:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:130:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:137:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:141:3 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:152:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\wake_lock_service_web.dart:155:5 - avoid_print
+   info - Dangling library doc comment - lib\utils\quick_input_parser.dart:6:1 - dangling_library_doc_comments
+   info - Parameter 'key' could be a super parameter - lib\widgets\audio_player_control.dart:9:9 - use_super_parameters
+warning - The declaration '_onSliderChanged' isn't referenced - lib\widgets\audio_player_control.dart:75:16 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\audio_player_control.dart:126:42 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\processing_progress_indicator.dart:17:9 - use_super_parameters
+   info - Use 'const' with the constructor to improve performance - lib\widgets\processing_progress_indicator.dart:260:13 - prefer_const_constructors
+   info - Use 'const' literals as arguments to constructors of '@immutable' classes - lib\widgets\processing_progress_indicator.dart:261:25 - prefer_const_literals_to_create_immutables
+   info - Parameter 'key' could be a super parameter - lib\widgets\processing_progress_indicator.dart:345:9 - use_super_parameters
+   info - Parameter 'key' could be a super parameter - lib\widgets\speaker_input_form.dart:9:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\speaker_selection_bottom_sheet.dart:477:26 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\widgets\speaker_selection_bottom_sheet.dart:519:30 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\widgets\speaker_selection_bottom_sheet.dart:531:30 - use_build_context_synchronously
+   info - Parameter 'key' could be a super parameter - lib\widgets\today_appointments_card.dart:11:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\today_appointments_card.dart:120:7 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\today_appointments_card.dart:134:7 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\today_appointments_card.dart:168:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\today_appointments_card.dart:171:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\today_appointments_card.dart:302:22 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\widgets\unregistered_speaker_tile.dart:12:9 - use_super_parameters
+warning - The value of the local variable 'isDark' isn't used - lib\widgets\unregistered_speaker_tile.dart:47:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\unregistered_speaker_tile.dart:83:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\unregistered_speaker_tile.dart:84:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\unregistered_speaker_tile.dart:150:44 - deprecated_member_use
+   info - Use 'const' with the constructor to improve performance - lib\widgets\unregistered_speaker_tile.dart:153:30 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\widgets\unregistered_speaker_tile.dart:155:32 - prefer_const_constructors
+warning - The value of the local variable 'recordingService' isn't used - test\e2e_workflow_test.dart:22:27 - unused_local_variable
+warning - The value of the local variable 'storageService' isn't used - test\e2e_workflow_test.dart:23:25 - unused_local_variable
+warning - The value of the local variable 'supabaseService' isn't used - test\e2e_workflow_test.dart:24:26 - unused_local_variable
+   info - Uses 'await' on an instance of 'void', which is not a subtype of 'Future' - test\e2e_workflow_test.dart:35:7 - await_only_futures
+  error - This expression has a type of 'void' so its value can't be used - test\e2e_workflow_test.dart:35:29 - use_of_void_result
+   info - Use 'const' with the constructor to improve performance - test\e2e_workflow_test.dart:72:28 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - test\e2e_workflow_test.dart:109:28 - prefer_const_constructors
+warning - The value of the local variable 'storageService' isn't used - test\e2e_workflow_test.dart:177:13 - unused_local_variable
+   info - Uses 'await' on an instance of 'void', which is not a subtype of 'Future' - test\e2e_workflow_test.dart:200:7 - await_only_futures
+  error - This expression has a type of 'void' so its value can't be used - test\e2e_workflow_test.dart:200:29 - use_of_void_result
+warning - The value of the local variable 'storageService' isn't used - test\e2e_workflow_test.dart:216:13 - unused_local_variable
+   info - Uses 'await' on an instance of 'void', which is not a subtype of 'Future' - test\e2e_workflow_test.dart:244:7 - await_only_futures
+  error - This expression has a type of 'void' so its value can't be used - test\e2e_workflow_test.dart:244:29 - use_of_void_result
+   info - The imported package 'mockito' isn't a dependency of the importing package - test\speaker_manager_test.dart:2:8 - depend_on_referenced_packages
+  error - Target of URI doesn't exist: 'package:mockito/mockito.dart' - test\speaker_manager_test.dart:2:8 - uri_does_not_exist
+   info - Can't use a relative path to import a library in 'lib' - test\speaker_manager_test.dart:3:8 - avoid_relative_lib_imports
+   info - Can't use a relative path to import a library in 'lib' - test\speaker_manager_test.dart:4:8 - avoid_relative_lib_imports
+   info - Can't use a relative path to import a library in 'lib' - test\speaker_manager_test.dart:5:8 - avoid_relative_lib_imports
+  error - Missing concrete implementations of 'class SupabaseService.bulkUpdateTranscriptSpeaker', 'class SupabaseService.createAppointment', 'class SupabaseService.createMeeting', 'class SupabaseService.createSpeaker', and 35 more - test\speaker_manager_test.dart:8:7 - non_abstract_class_inherits_abstract_member
+  error - Classes can only extend other classes - test\speaker_manager_test.dart:8:35 - extends_non_class
+warning - The value of the local variable 'mockSupabaseService' isn't used - test\speaker_manager_test.dart:13:30 - unused_local_variable
+   info - Use 'const' for final variables initialized to a constant value - test\speaker_manager_test.dart:56:7 - prefer_const_declarations
+   info - Use 'const' for final variables initialized to a constant value - test\speaker_manager_test.dart:76:7 - prefer_const_declarations
+   info - Use 'const' with the constructor to improve performance - test\speaker_manager_test.dart:245:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - test\speaker_manager_test.dart:252:24 - prefer_const_constructors
+

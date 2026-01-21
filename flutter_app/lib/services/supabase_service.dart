@@ -483,30 +483,7 @@ class SupabaseService {
   // STORAGE
   // ====================
 
-  Future<String> uploadAudio(String filePath, String meetingId) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw Exception('Audio file not found');
-      }
 
-      final fileName = '$meetingId-${DateTime.now().millisecondsSinceEpoch}.m4a';
-      final storagePath = 'audio/$userId/$fileName';
-
-      await client.storage.from('meetings').upload(
-        storagePath,
-        file,
-        fileOptions: const FileOptions(
-          contentType: 'audio/m4a',
-        ),
-      );
-
-      final publicUrl = client.storage.from('meetings').getPublicUrl(storagePath);
-      return publicUrl;
-    } catch (e) {
-      throw Exception('Failed to upload audio: $e');
-    }
-  }
 
   Future<void> deleteAudio(String audioUrl) async {
     try {
@@ -541,21 +518,7 @@ class SupabaseService {
 
   /// Download audio sample file to temporary location
   /// Returns the file path
-  Future<String> downloadAudioSample(String speakerId) async {
-    try {
-      final storagePath = 'audio/$userId/${speakerId}_sample.wav';
-      final bytes = await client.storage.from('meetings').download(storagePath);
 
-      // Save to temporary directory
-      final tempDir = Directory.systemTemp;
-      final tempFile = File('${tempDir.path}/speaker_${speakerId}_sample.wav');
-      await tempFile.writeAsBytes(bytes);
-
-      return tempFile.path;
-    } catch (e) {
-      throw Exception('Failed to download audio sample: $e');
-    }
-  }
 
   // ====================
   // TEMPLATES
