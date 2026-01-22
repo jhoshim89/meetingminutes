@@ -11,6 +11,7 @@ import 'screens/speaker_manager_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/scheduler_screen.dart';
+import 'screens/pin_login_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/meeting_provider.dart';
 import 'providers/recorder_provider.dart';
@@ -168,6 +169,7 @@ class MainNavigator extends StatefulWidget {
 class _MainNavigatorState extends State<MainNavigator> {
   int _currentIndex = 0;
   bool _isInitialized = false;
+  bool _needsLogin = true; // PIN 로그인 필요 여부
   String? _initialAppointmentId;
 
   final List<Widget> _screens = const [
@@ -190,13 +192,18 @@ class _MainNavigatorState extends State<MainNavigator> {
   Future<void> _initializeAuth() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Auto sign in anonymously if not authenticated
-    if (!authProvider.isAuthenticated) {
-      await authProvider.signInAnonymously();
-    }
+    // 기존 세션 복원 시도
+    final hasSession = await authProvider.tryRestoreSession();
 
     setState(() {
+      _needsLogin = !hasSession;
       _isInitialized = true;
+    });
+  }
+
+  void _onLoginSuccess() {
+    setState(() {
+      _needsLogin = false;
     });
   }
 
@@ -312,54 +319,65 @@ class _MainNavigatorState extends State<MainNavigator> {
         ),
       );
     }
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            type: BottomNavigationBarType.fixed,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: '홈',
+
+    // AuthProvider의 needsLogin 상태 감시 (Sign Out 시 반응)
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // PIN 로그인 필요 시 로그인 화면 표시
+        if (_needsLogin || authProvider.needsLogin) {
+          return PinLoginScreen(onLoginSuccess: _onLoginSuccess);
+        }
+
+        return Scaffold(
+          body: _screens[_currentIndex],
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                type: BottomNavigationBarType.fixed,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: '홈',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.search),
+                    label: '검색',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.mic),
+                    label: '녹음',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.calendar_today),
+                    label: '캘린더',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: '화자',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.settings),
+                    label: '설정',
+                  ),
+                ],
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.search),
-                label: '검색',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.mic),
-                label: '녹음',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_today),
-                label: '캘린더',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: '화자',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings),
-                label: '설정',
+              // iOS 홈 인디케이터 영역 확보 (모든 플랫폼 적용)
+              Container(
+                color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+                       Theme.of(context).scaffoldBackgroundColor,
+                height: MediaQuery.of(context).padding.bottom,
               ),
             ],
           ),
-          // iOS 홈 인디케이터 영역 확보 (모든 플랫폼 적용)
-          Container(
-            color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
-                   Theme.of(context).scaffoldBackgroundColor,
-            height: MediaQuery.of(context).padding.bottom,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

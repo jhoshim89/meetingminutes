@@ -16,12 +16,10 @@ class SupabaseService {
 
   // Auth helpers
   User? get currentUser => client.auth.currentUser;
-  
-  // TODO: 개발용 하드코딩 - E2E 테스트를 위해 복구
-  // PC Worker와 같은 user_id 사용하도록 임시 설정
-  static const String _devUserId = '2be1566f-8d85-4ea9-ac1b-b11c8fce7840';
-  String? get userId => _devUserId; // currentUser?.id;
-  
+
+  // 실제 인증된 사용자 ID 사용 (RLS 정책과 일치)
+  String? get userId => currentUser?.id;
+
   bool get isAuthenticated => currentUser != null;
 
   // ====================
@@ -845,6 +843,38 @@ class SupabaseService {
   // ====================
   // AUTH
   // ====================
+
+  /// PIN 코드로 admin 계정에 로그인
+  /// PIN은 내부적으로 'pin:{PIN}' 형식의 비밀번호로 변환됨
+  Future<User?> signInWithPin(String pin) async {
+    try {
+      final response = await client.auth.signInWithPassword(
+        email: 'admin@meetingminutes.local',
+        password: 'pin:$pin',
+      );
+      return response.user;
+    } catch (e) {
+      throw Exception('Failed to sign in with PIN: $e');
+    }
+  }
+
+  /// 현재 유효한 세션이 있는지 확인
+  bool get hasValidSession => client.auth.currentSession != null;
+
+  /// 기존 세션 복원 시도
+  /// Supabase는 로컬 스토리지에 세션을 저장하므로 자동 복원 가능
+  Future<User?> tryRestoreSession() async {
+    try {
+      final session = client.auth.currentSession;
+      if (session != null) {
+        return client.auth.currentUser;
+      }
+      return null;
+    } catch (e) {
+      print('Session restore failed: $e');
+      return null;
+    }
+  }
 
   Future<void> signInAnonymously() async {
     try {
