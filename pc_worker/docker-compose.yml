@@ -29,7 +29,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: meetingminutes-worker
+    container_name: meetingminutes-worker-v2
     restart: unless-stopped
     depends_on:
       ollama:
@@ -40,12 +40,22 @@ services:
       # Override Ollama URL for Docker network
       - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
+      # Mount source code for development (uses latest code without rebuild)
+      - ./config.py:/app/config.py:ro
+      - ./main_worker.py:/app/main_worker.py:ro
+      - ./folder_monitor.py:/app/folder_monitor.py:ro
+      - ./summarizer_utils.py:/app/summarizer_utils.py:ro
+      - ./hybrid_summarizer.py:/app/hybrid_summarizer.py:ro
       # Persist temp audio files
       - ./temp_audio:/app/temp_audio
       # Persist model cache (WhisperX, HuggingFace models)
       - worker_models:/app/models
       # Persist logs
       - ./logs:/app/logs
+      # Watch folder for audio files (Synology Drive record folder)
+      - C:/Users/user/SynologyDrive/08_예과장자료들/회의록raw/record:/app/watch_folder
+      # Output folder for DOCX files
+      - ./output:/app/output
     deploy:
       resources:
         reservations:

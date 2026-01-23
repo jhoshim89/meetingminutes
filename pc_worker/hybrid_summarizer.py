@@ -34,6 +34,28 @@ class HybridSummary:
     raw_text: str = ""
     processing_time: float = 0.0
 
+    @property
+    def summary(self) -> str:
+        """MeetingSummary 호환: main_topics를 요약문으로 변환"""
+        if self.main_topics:
+            return " ".join(self.main_topics)
+        return self.raw_text[:500] if self.raw_text else "(요약 없음)"
+
+    @property
+    def key_points(self) -> List[str]:
+        """MeetingSummary 호환: main_topics 반환"""
+        return self.main_topics
+
+    @property
+    def topics(self) -> List[str]:
+        """MeetingSummary 호환: main_topics 반환"""
+        return self.main_topics
+
+    @property
+    def categories(self) -> List[str]:
+        """MeetingSummary 호환: 빈 리스트 반환"""
+        return []
+
 
 class HybridSummarizer:
     """통합 회의 요약기"""

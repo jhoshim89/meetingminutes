@@ -26,6 +26,10 @@ except ImportError:
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# User ID Configuration (for local/dev processing)
+# This should match the Flutter app's anonymous user ID
+DEFAULT_USER_ID = os.getenv("DEFAULT_USER_ID")
+
 # Worker Configuration
 WORKER_ID = os.getenv("WORKER_ID", "default-worker")
 WORKER_NAME = os.getenv("WORKER_NAME", "Default Worker")

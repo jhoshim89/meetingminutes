@@ -849,7 +849,7 @@ class SupabaseService {
   Future<User?> signInWithPin(String pin) async {
     try {
       final response = await client.auth.signInWithPassword(
-        email: 'admin@meetingminutes.local',
+        email: 'admin@meetingminutes.app',
         password: 'pin:$pin',
       );
       return response.user;

@@ -4,12 +4,13 @@ Summarizer 공통 유틸리티 모듈
 hybrid_summarizer, natural_summarizer에서 공통으로 사용하는 함수들
 """
 
+import os
 import re
 import requests
 from typing import List, Tuple, Optional
 
-# 설정
-OLLAMA_URL = "http://localhost:11434"
+# 설정 - 환경 변수에서 읽기 (Docker 호환)
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = "exaone3.5:7.8b"
 CHUNK_SIZE = 3000
 CHUNK_OVERLAP = 200

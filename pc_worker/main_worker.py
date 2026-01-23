@@ -279,7 +279,8 @@ class PCWorker:
                 await self.supabase.save_speakers(meeting_id, pipeline_result.speakers)
 
             # Step 8: Generate summary
-            summary = None
+            summary_dict = None
+            hybrid_summary = None  # HybridSummary 객체 (word_generator용)
             if SUMMARIZATION_ENABLED and self.summarizer and pipeline_result.transcript.segments:
                 try:
                     # segments를 텍스트로 변환
@@ -292,25 +293,26 @@ class PCWorker:
                         verbose=False
                     )
 
-                    # MeetingSummary 호환 딕셔너리로 변환
-                    summary = self.summarizer.to_meeting_summary(
+                    # MeetingSummary 호환 딕셔너리로 변환 (Supabase 저장용)
+                    summary_dict = self.summarizer.to_meeting_summary(
                         hybrid_summary,
                         meeting_id=meeting_id
                     )
 
-                    if summary:
-                        await self.supabase.save_summary(meeting_id, summary)
+                    if summary_dict:
+                        await self.supabase.save_summary(meeting_id, summary_dict)
                 except Exception as e:
                     logger.warning(f"Summary generation failed: {e}")
 
             # Step 9: Generate Word document
-            if self.word_generator:
+            if self.word_generator and hybrid_summary:
                 try:
                     meeting = await self.supabase.get_meeting_by_id(meeting_id)
+                    # hybrid_summary 객체를 직접 전달 (HybridSummary는 MeetingSummary 호환 속성 제공)
                     word_path = self.word_generator.generate_meeting_minutes(
                         meeting=meeting,
                         transcripts=pipeline_result.transcript.segments,
-                        summary=summary
+                        summary=hybrid_summary
                     )
                     logger.log_meeting_event(
                         meeting_id,

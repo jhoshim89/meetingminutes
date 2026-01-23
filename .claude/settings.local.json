@@ -6,7 +6,8 @@
       "Bash(ollama:*)",
       "Skill(superpowers:brainstorming)",
       "Bash(move \"D:\\\\Productions\\\\meetingminutes\\\\output\\\\학과회의.m4a\" \"D:\\\\Productions\\\\meetingminutes\\\\data\"\" && move \"D:Productionsmeetingminutesoutput시설과팀장님회의.m4a\" \"D:Productionsmeetingminutesdata\"\")",
-      "Bash(npm update:*)"
+      "Bash(npm update:*)",
+      "mcp__plugin_supabase_supabase__list_projects"
     ]
   },
   "outputStyle": "Explanatory"

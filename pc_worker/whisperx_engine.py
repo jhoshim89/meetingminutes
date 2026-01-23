@@ -34,10 +34,9 @@ class WhisperXConfig:
     chunk_length_seconds: int = 30
     # VAD (Voice Activity Detection) options
     # WhisperX 기본값: onset=0.5, offset=0.363
-    # ⚠️ pyannote.audio 버전 불일치(0.0.1 vs 3.4.0)로 낮은 VAD 값이 오작동할 수 있음
-    # 권장: 기본값(0.5) 사용, 조용한 오디오는 0.3으로 테스트
-    vad_onset: float = 0.3  # Speech start threshold (0.3으로 낮춰서 조용한 음성도 감지)
-    vad_offset: float = 0.363  # Speech end threshold (기본값 0.363 권장)
+    # iPhone Voice Memos 오디오 (낮은 비트레이트)를 위해 극도로 민감하게 설정
+    vad_onset: float = 0.05  # Speech start threshold (0.05로 극도로 민감하게)
+    vad_offset: float = 0.05  # Speech end threshold (0.05로 극도로 민감하게)
     vad_chunk_size: int = 30  # VAD chunk size in seconds (silero/pyannote용)
 
     def __post_init__(self):
@@ -92,10 +91,11 @@ class WhisperXEngine:
             logger.info(f"Loading WhisperX model: {self.config.model_size}")
             logger.info(f"VAD options: onset={self.config.vad_onset}, offset={self.config.vad_offset}")
 
+            # Silero VAD 사용 - pyannote.audio 버전 불일치 문제 해결
+            # pyannote는 버전 불일치(0.0.1 vs 3.4.0)로 음성 누락 발생
             vad_options = {
                 "vad_onset": self.config.vad_onset,
                 "vad_offset": self.config.vad_offset,
-                "chunk_size": self.config.vad_chunk_size
             }
 
             self.model = await asyncio.to_thread(
@@ -104,6 +104,7 @@ class WhisperXEngine:
                 self.config.device,
                 compute_type=self.config.compute_type,
                 download_root=str(MODEL_CACHE_DIR),
+                vad_method="silero",  # pyannote 대신 silero VAD 사용
                 vad_options=vad_options
             )
 
@@ -267,9 +268,14 @@ class WhisperXEngine:
                 temp_wav = tmp.name
 
             try:
+                # loudnorm 필터로 오디오 정규화 (iPhone Voice Memos 등 낮은 볼륨 파일 대응)
+                # -I=-16: 통합 라우드니스 목표 (EBU R128 표준)
+                # -TP=-1.5: True Peak 최대값
+                # -LRA=11: 라우드니스 범위
                 cmd = [
                     ffmpeg_path,
                     '-i', str(audio_path),
+                    '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',  # 오디오 정규화
                     '-ar', str(SAMPLE_RATE),
                     '-ac', '1',
                     '-f', 'wav',

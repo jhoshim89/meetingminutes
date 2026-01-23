@@ -12,7 +12,7 @@ import aiohttp
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
 
-from config import SUPABASE_URL, SUPABASE_KEY, logger
+from config import SUPABASE_URL, SUPABASE_KEY, DEFAULT_USER_ID, logger
 from models import (
     Meeting,
     MeetingStatus,
@@ -249,18 +249,14 @@ class SupabaseClient:
             SupabaseQueryError: If creation fails
         """
         try:
-            # If no user_id provided, get the first user (for local processing)
+            # If no user_id provided, use DEFAULT_USER_ID from environment
             if not user_id:
-                user_response = await asyncio.to_thread(
-                    lambda: self.client.table("profiles")
-                    .select("id")
-                    .limit(1)
-                    .execute()
-                )
-                if user_response.data:
-                    user_id = user_response.data[0]["id"]
-                else:
-                    raise SupabaseQueryError("No user found for local meeting creation")
+                user_id = DEFAULT_USER_ID
+                if not user_id:
+                    raise SupabaseQueryError(
+                        "DEFAULT_USER_ID not configured in .env. "
+                        "Please set it to match your Flutter app's anonymous user ID."
+                    )
 
             meeting_data = {
                 "title": title,

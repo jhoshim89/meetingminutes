@@ -1,0 +1,21 @@
+# Ignore large/unnecessary directories
+.dart_tool/
+.idea/
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+lib/
+test/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+pubspec.yaml
+analysis_options.yaml
+*.dart
+*.iml
+
+# Keep build/web for deployment

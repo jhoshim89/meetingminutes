@@ -111704,7 +111704,7 @@ s=p}for(;;)switch(s){case 0:p=4
 l=$.cz().b
 l===$&&A.a()
 s=7
-return A.i(l.gcc().Ca("admin@meetingminutes.local","pin:"+a),$async$n2)
+return A.i(l.gcc().Ca("admin@meetingminutes.app","pin:"+a),$async$n2)
 case 7:n=c
 l=n.b
 q=l
