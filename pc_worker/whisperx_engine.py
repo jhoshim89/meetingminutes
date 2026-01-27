@@ -4,7 +4,7 @@ Handles audio transcription using WhisperX with Korean language support
 """
 
 # Import config first to apply PyTorch 2.6+ compatibility patch
-from config import WHISPERX_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR
+from config import WHISPERX_MODEL, ENABLE_GPU, CUDA_DEVICE, MODEL_CACHE_DIR, HUGGINGFACE_TOKEN
 
 import asyncio
 from pathlib import Path
@@ -12,6 +12,7 @@ from typing import List, Dict, Optional, Tuple
 import numpy as np
 import torch
 import whisperx
+from whisperx.diarize import DiarizationPipeline
 import soundfile as sf
 from dataclasses import dataclass
 
@@ -38,6 +39,11 @@ class WhisperXConfig:
     vad_onset: float = 0.05  # Speech start threshold (0.05로 극도로 민감하게)
     vad_offset: float = 0.05  # Speech end threshold (0.05로 극도로 민감하게)
     vad_chunk_size: int = 30  # VAD chunk size in seconds (silero/pyannote용)
+    # Speaker Diarization options
+    enable_diarization: bool = True  # 화자분리 활성화 (기본: True)
+    min_speakers: int = 1  # 최소 화자 수
+    max_speakers: int = 10  # 최대 화자 수
+    hf_token: Optional[str] = None  # HuggingFace 토큰 (None이면 환경변수에서 가져옴)
 
     def __post_init__(self):
         """Validate configuration"""
@@ -45,6 +51,10 @@ class WhisperXConfig:
             logger.warning("GPU disabled in config, forcing CPU mode")
             self.device = "cpu"
             self.compute_type = "int8"
+
+        # HuggingFace 토큰 설정
+        if self.hf_token is None:
+            self.hf_token = HUGGINGFACE_TOKEN
 
 
 class WhisperXEngine:
@@ -64,13 +74,15 @@ class WhisperXEngine:
         self.model = None
         self.align_model = None
         self.align_metadata = None
+        self.diarize_model = None  # 화자분리 파이프라인
         self._is_initialized = False
 
         logger.info(
             f"WhisperX Engine initialized with: "
             f"model={self.config.model_size}, "
             f"device={self.config.device}, "
-            f"language={self.config.language}"
+            f"language={self.config.language}, "
+            f"diarization={self.config.enable_diarization}"
         )
 
     async def initialize(self) -> None:
@@ -116,12 +128,33 @@ class WhisperXEngine:
                 device=self.config.device
             )
 
+            # Load speaker diarization pipeline (if enabled)
+            if self.config.enable_diarization:
+                if not self.config.hf_token:
+                    logger.warning(
+                        "화자분리 활성화됨, 하지만 HuggingFace 토큰이 없습니다. "
+                        "HUGGINGFACE_TOKEN 환경변수를 설정하세요."
+                    )
+                else:
+                    logger.info("Loading speaker diarization pipeline (pyannote)...")
+                    try:
+                        self.diarize_model = await asyncio.to_thread(
+                            DiarizationPipeline,
+                            use_auth_token=self.config.hf_token,
+                            device=self.config.device
+                        )
+                        logger.info("Speaker diarization pipeline loaded successfully")
+                    except Exception as diarize_err:
+                        logger.warning(f"화자분리 파이프라인 로드 실패 (전사는 계속 진행): {diarize_err}")
+                        self.diarize_model = None
+
             self._is_initialized = True
 
             logger.log_operation_success(
                 "initialize_whisperx_model",
                 device=self.config.device,
-                model_size=self.config.model_size
+                model_size=self.config.model_size,
+                diarization_enabled=self.diarize_model is not None
             )
 
         except Exception as e:
@@ -183,6 +216,34 @@ class WhisperXEngine:
                 self.config.device,
                 return_char_alignments=False
             )
+
+            # Speaker diarization (if enabled and model loaded)
+            if self.diarize_model is not None:
+                logger.info("Running speaker diarization...")
+                try:
+                    diarize_segments = await asyncio.to_thread(
+                        self.diarize_model,
+                        audio,
+                        min_speakers=self.config.min_speakers,
+                        max_speakers=self.config.max_speakers
+                    )
+
+                    # Assign speakers to words/segments
+                    aligned_result = await asyncio.to_thread(
+                        whisperx.assign_word_speakers,
+                        diarize_segments,
+                        aligned_result
+                    )
+
+                    # 화자 수 로깅
+                    speakers = set()
+                    for seg in aligned_result.get("segments", []):
+                        if seg.get("speaker"):
+                            speakers.add(seg["speaker"])
+                    logger.info(f"Speaker diarization complete: {len(speakers)} speakers detected")
+
+                except Exception as diarize_err:
+                    logger.warning(f"화자분리 실행 실패 (전사 결과는 유지): {diarize_err}")
 
             # Convert to TranscriptSegment objects
             segments = self._convert_to_segments(
@@ -346,14 +407,17 @@ class WhisperXEngine:
                     if word_confidences:
                         confidence = sum(word_confidences) / len(word_confidences)
 
+                # Extract speaker info from diarization (if available)
+                speaker = seg.get("speaker")  # e.g., "SPEAKER_00", "SPEAKER_01"
+
                 segment = TranscriptSegment(
                     meeting_id=meeting_id,
                     start_time=float(seg["start"]),
                     end_time=float(seg["end"]),
                     text=seg["text"].strip(),
                     confidence=confidence,
-                    speaker_id=None,  # Will be filled by diarization
-                    speaker_label=None
+                    speaker_id=speaker,  # From diarization
+                    speaker_label=speaker  # Use same label for now
                 )
 
                 segments.append(segment)

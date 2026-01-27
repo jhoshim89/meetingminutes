@@ -20,7 +20,9 @@ from dataclasses import dataclass, field
 
 from summarizer_utils import (
     call_ollama, chunk_transcript, parse_bullet_list,
-    infer_category, CATEGORIES, DEFAULT_MODEL, OLLAMA_URL
+    infer_category, CATEGORIES, DEFAULT_MODEL, OLLAMA_URL,
+    ensure_ollama_ready, OllamaConnectionError, OllamaEmptyResponseError,
+    logger
 )
 
 
@@ -57,16 +59,41 @@ class HybridSummary:
         return []
 
 
+class SummaryValidationError(Exception):
+    """요약 결과 검증 실패"""
+    pass
+
+
 class HybridSummarizer:
     """통합 회의 요약기"""
 
-    def __init__(self, model: str = DEFAULT_MODEL, ollama_url: str = OLLAMA_URL):
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        ollama_url: str = OLLAMA_URL,
+        check_health_on_init: bool = True,
+        strict_validation: bool = True
+    ):
+        """
+        Args:
+            model: Ollama 모델명
+            ollama_url: Ollama 서버 URL
+            check_health_on_init: 초기화 시 서버 헬스체크 수행 여부
+            strict_validation: 엄격한 결과 검증 (빈 결과 시 예외 발생)
+        """
         self.model = model
         self.ollama_url = ollama_url
+        self.strict_validation = strict_validation
+
+        if check_health_on_init:
+            ensure_ollama_ready(ollama_url, model)
 
     def _call_llm(self, prompt: str, temperature: float = 0.3) -> str:
         """LLM 호출 래퍼"""
-        return call_ollama(prompt, self.model, self.ollama_url, temperature)
+        return call_ollama(
+            prompt, self.model, self.ollama_url, temperature,
+            raise_on_empty=self.strict_validation
+        )
 
     def _summarize_chunk(self, time_range: str, chunk: str) -> Dict:
         """청크를 하이브리드 방식으로 요약"""
@@ -248,7 +275,16 @@ class HybridSummarizer:
             for s in chunk_summaries
         ]
 
-        # 5. 결과 포맷팅
+        # 5. 결과 검증
+        self._validate_summary(
+            main_topics=main_topics,
+            action_items=action_items,
+            agenda_items=agenda_items,
+            chunk_summaries=chunk_summaries,
+            verbose=verbose
+        )
+
+        # 6. 결과 포맷팅
         raw_text = self._format_output(
             main_topics, action_items, agenda_items, timeline_summaries
         )
@@ -265,6 +301,49 @@ class HybridSummarizer:
             raw_text=raw_text,
             processing_time=processing_time
         )
+
+    def _validate_summary(
+        self,
+        main_topics: List[str],
+        action_items: List[str],
+        agenda_items: List[Dict],
+        chunk_summaries: List[Dict],
+        verbose: bool = True
+    ) -> None:
+        """
+        요약 결과 검증
+
+        Raises:
+            SummaryValidationError: 결과가 비어있을 때 (strict_validation=True)
+        """
+        issues = []
+
+        # 1. 주요 주제 체크
+        if not main_topics:
+            issues.append("주요 주제가 비어있음")
+
+        # 2. 안건 체크
+        empty_agendas = sum(1 for a in agenda_items if not a.get('title'))
+        if empty_agendas == len(agenda_items) and agenda_items:
+            issues.append(f"모든 안건({len(agenda_items)}개)이 비어있음")
+
+        # 3. 청크 요약 체크
+        empty_chunks = sum(1 for c in chunk_summaries if not c.get('title'))
+        if empty_chunks > len(chunk_summaries) * 0.5:
+            issues.append(f"청크 요약의 {empty_chunks}/{len(chunk_summaries)}개가 비어있음")
+
+        if issues:
+            warning_msg = "요약 결과 검증 경고:\n" + "\n".join(f"  - {i}" for i in issues)
+
+            if verbose:
+                print(f"\n⚠️ {warning_msg}")
+
+            logger.warning(warning_msg)
+
+            if self.strict_validation:
+                raise SummaryValidationError(
+                    f"요약 결과가 비어있습니다. LLM 응답을 확인하세요.\n{warning_msg}"
+                )
 
     def _format_output(
         self,
@@ -409,9 +488,19 @@ def summarize_file(
     input_path: str,
     output_path: Optional[str] = None,
     model: str = DEFAULT_MODEL,
-    output_format: str = "text"
+    output_format: str = "text",
+    strict: bool = True
 ) -> None:
-    """파일에서 전사본을 읽어 하이브리드 요약"""
+    """
+    파일에서 전사본을 읽어 하이브리드 요약
+
+    Args:
+        input_path: 입력 전사본 파일 경로
+        output_path: 출력 파일 경로 (없으면 자동 생성)
+        model: Ollama 모델명
+        output_format: 출력 형식 (text, json, docx)
+        strict: 엄격 모드 (빈 결과 시 예외 발생)
+    """
     with open(input_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -427,31 +516,47 @@ def summarize_file(
     print(f"전사본 길이: {len(transcript)} 자")
     print(f"모델: {model}")
     print(f"출력 형식: {output_format}")
+    print(f"엄격 모드: {strict}")
     print("-" * 50)
 
-    summarizer = HybridSummarizer(model=model)
+    try:
+        summarizer = HybridSummarizer(
+            model=model,
+            check_health_on_init=True,
+            strict_validation=strict
+        )
+    except OllamaConnectionError as e:
+        print(f"\n❌ Ollama 연결 실패:\n{e}")
+        return
+
     base_path = input_path.rsplit('.', 1)[0]
 
-    if output_format == "docx":
-        output_path = output_path or f"{base_path}_회의록.docx"
-        summarizer.generate_docx(transcript, output_path)
+    try:
+        if output_format == "docx":
+            output_path = output_path or f"{base_path}_회의록.docx"
+            summarizer.generate_docx(transcript, output_path)
 
-    elif output_format == "json":
-        output_path = output_path or f"{base_path}_회의록.json"
-        summary = summarizer.summarize(transcript)
-        minutes_json = summarizer.to_minutes_json(summary)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(minutes_json, f, ensure_ascii=False, indent=2)
-        print(f"\n저장 완료: {output_path}")
+        elif output_format == "json":
+            output_path = output_path or f"{base_path}_회의록.json"
+            summary = summarizer.summarize(transcript)
+            minutes_json = summarizer.to_minutes_json(summary)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(minutes_json, f, ensure_ascii=False, indent=2)
+            print(f"\n✅ 저장 완료: {output_path}")
 
-    else:
-        output_path = output_path or f"{base_path}_하이브리드요약.txt"
-        summary = summarizer.summarize(transcript)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(summary.raw_text)
-        print(f"\n저장 완료: {output_path}")
-        print("=" * 50)
-        print(summary.raw_text)
+        else:
+            output_path = output_path or f"{base_path}_하이브리드요약.txt"
+            summary = summarizer.summarize(transcript)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(summary.raw_text)
+            print(f"\n✅ 저장 완료: {output_path}")
+            print("=" * 50)
+            print(summary.raw_text)
+
+    except (OllamaConnectionError, OllamaEmptyResponseError) as e:
+        print(f"\n❌ LLM 오류: {e}")
+    except SummaryValidationError as e:
+        print(f"\n❌ 요약 검증 실패: {e}")
 
 
 if __name__ == "__main__":
@@ -467,6 +572,8 @@ if __name__ == "__main__":
                         help='출력 형식')
     parser.add_argument('-m', '--model', default=DEFAULT_MODEL,
                         help='Ollama 모델명')
+    parser.add_argument('--no-strict', action='store_true',
+                        help='엄격 모드 비활성화 (빈 결과 허용)')
 
     args = parser.parse_args()
 
@@ -474,5 +581,6 @@ if __name__ == "__main__":
         args.input_file,
         args.output,
         args.model,
-        args.format
+        args.format,
+        strict=not args.no_strict
     )

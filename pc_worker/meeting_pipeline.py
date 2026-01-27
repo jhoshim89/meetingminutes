@@ -40,7 +40,10 @@ def run_pipeline(
     metadata: Optional[Dict[str, Any]] = None,
     skip_stt: bool = False,
     transcript_path: Optional[str] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    enable_diarization: bool = True,
+    min_speakers: int = 1,
+    max_speakers: int = 10
 ) -> Dict[str, str]:
     """
     전체 회의록 생성 파이프라인 실행
@@ -55,6 +58,9 @@ def run_pipeline(
         skip_stt: STT 건너뛰기 (기존 전사본 사용)
         transcript_path: 기존 전사본 파일 경로 (skip_stt=True 시 필요)
         verbose: 상세 출력
+        enable_diarization: 화자분리 활성화 (기본: True)
+        min_speakers: 최소 화자 수
+        max_speakers: 최대 화자 수
 
     Returns:
         생성된 파일 경로들
@@ -80,6 +86,9 @@ def run_pipeline(
     print(f"출력 형식: {output_format}")
     print(f"STT 모델: {stt_model}")
     print(f"LLM 모델: {llm_model}")
+    print(f"화자분리: {'활성화' if enable_diarization else '비활성화'}")
+    if enable_diarization:
+        print(f"화자 수: {min_speakers}~{max_speakers}명")
     print("-" * 60)
 
     # ═══════════════════════════════════════════════════════════════════
@@ -98,7 +107,12 @@ def run_pipeline(
         stt_start = time.time()
 
         try:
-            config = WhisperXConfig(model_size=stt_model)
+            config = WhisperXConfig(
+                model_size=stt_model,
+                enable_diarization=enable_diarization,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers
+            )
             engine = WhisperXEngine(config=config)
 
             # Generate a unique meeting_id for this run
@@ -280,6 +294,14 @@ def main():
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='간략한 출력')
 
+    # 화자분리 옵션
+    parser.add_argument('--no-diarization', action='store_true',
+                        help='화자분리 비활성화')
+    parser.add_argument('--min-speakers', type=int, default=1,
+                        help='최소 화자 수 (기본: 1)')
+    parser.add_argument('--max-speakers', type=int, default=10,
+                        help='최대 화자 수 (기본: 10)')
+
     # 메타데이터 옵션
     parser.add_argument('--department', help='부서명')
     parser.add_argument('--location', help='장소')
@@ -304,7 +326,10 @@ def main():
         metadata=metadata if metadata else None,
         skip_stt=args.skip_stt,
         transcript_path=args.transcript,
-        verbose=not args.quiet
+        verbose=not args.quiet,
+        enable_diarization=not args.no_diarization,
+        min_speakers=args.min_speakers,
+        max_speakers=args.max_speakers
     )
 
     return 0 if results else 1
