@@ -13,11 +13,16 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List, Tuple
 
 # 로컬 모듈
 from whisperx_engine import WhisperXEngine, WhisperXConfig
 from hybrid_summarizer import HybridSummarizer
+
+# Supabase 연동용
+from models import Transcript, TranscriptSegment, MeetingStatus
+from config import DEFAULT_USER_ID
+from supabase_client import get_supabase_client
 
 # 설정
 DEFAULT_STT_MODEL = "large-v3-turbo"
@@ -29,6 +34,101 @@ def format_duration(seconds: float) -> str:
     mins = int(seconds // 60)
     secs = int(seconds % 60)
     return f"{mins:02d}:{secs:02d}"
+
+
+def segments_to_transcript(meeting_id: str, segments: List) -> Transcript:
+    """WhisperX segments 리스트를 Transcript 객체로 변환"""
+    transcript_segments = []
+    for seg in segments:
+        transcript_segments.append(TranscriptSegment(
+            meeting_id=meeting_id,
+            start_time=seg.start_time,
+            end_time=seg.end_time,
+            text=seg.text,
+            speaker_label=seg.speaker_label,
+            confidence=getattr(seg, 'confidence', None)
+        ))
+
+    duration = segments[-1].end_time if segments else 0.0
+    return Transcript(
+        meeting_id=meeting_id,
+        segments=transcript_segments,
+        language="ko",
+        duration=duration
+    )
+
+
+async def upload_to_supabase(
+    audio_path: Path,
+    transcript: Transcript,
+    summary_dict: Optional[Dict],
+    user_id: Optional[str] = None,
+    title: Optional[str] = None
+) -> Tuple[bool, str]:
+    """
+    파이프라인 결과를 Supabase에 업로드
+
+    Returns:
+        (success: bool, message: str) - 성공 여부와 meeting_id 또는 에러 메시지
+    """
+    meeting_id = None
+
+    try:
+        supabase = get_supabase_client()
+
+        # Health check
+        if not await supabase.health_check():
+            return False, "Supabase 연결 실패"
+
+        # 1. Meeting 레코드 생성
+        meeting_title = title or audio_path.stem
+        meeting_data = await supabase.create_meeting_from_local(
+            title=meeting_title,
+            audio_filename=audio_path.name,
+            user_id=user_id or DEFAULT_USER_ID
+        )
+        meeting_id = meeting_data["id"]
+
+        # 2. 상태: PROCESSING
+        await supabase.update_meeting_status(
+            meeting_id=meeting_id,
+            status=MeetingStatus.PROCESSING
+        )
+
+        # 3. Transcript 저장
+        if transcript and transcript.segments:
+            # meeting_id 업데이트
+            for seg in transcript.segments:
+                seg.meeting_id = meeting_id
+            transcript.meeting_id = meeting_id
+            await supabase.save_transcript(meeting_id, transcript)
+
+        # 4. Summary 저장
+        if summary_dict:
+            summary_dict["meeting_id"] = meeting_id
+            await supabase.save_summary(meeting_id, summary_dict)
+
+        # 5. 상태: COMPLETED
+        await supabase.update_meeting_status(
+            meeting_id=meeting_id,
+            status=MeetingStatus.COMPLETED
+        )
+
+        return True, meeting_id
+
+    except Exception as e:
+        # 실패 시 상태 업데이트
+        if meeting_id:
+            try:
+                supabase = get_supabase_client()
+                await supabase.update_meeting_status(
+                    meeting_id=meeting_id,
+                    status=MeetingStatus.FAILED,
+                    error_message=str(e)
+                )
+            except:
+                pass
+        return False, str(e)
 
 
 def run_pipeline(
@@ -43,7 +143,11 @@ def run_pipeline(
     verbose: bool = True,
     enable_diarization: bool = True,
     min_speakers: int = 1,
-    max_speakers: int = 10
+    max_speakers: int = 10,
+    # Supabase 업로드 옵션
+    upload: bool = False,
+    user_id: Optional[str] = None,
+    title: Optional[str] = None
 ) -> Dict[str, str]:
     """
     전체 회의록 생성 파이프라인 실행
@@ -61,6 +165,9 @@ def run_pipeline(
         enable_diarization: 화자분리 활성화 (기본: True)
         min_speakers: 최소 화자 수
         max_speakers: 최대 화자 수
+        upload: Supabase에 결과 업로드 (기본: False)
+        user_id: Supabase user ID (기본: DEFAULT_USER_ID)
+        title: 회의 제목 (기본: 파일명)
 
     Returns:
         생성된 파일 경로들
@@ -96,6 +203,10 @@ def run_pipeline(
     # ═══════════════════════════════════════════════════════════════════
 
     transcript_text = ""
+    raw_segments = []  # 업로드용 원본 segments 저장
+    summary_result = None  # 업로드용 요약 결과 저장
+    summarizer = None  # to_meeting_summary 호출용
+    meeting_id = str(uuid.uuid4())  # 항상 meeting_id 생성
 
     if skip_stt and transcript_path:
         print(f"\n[1/3] STT 건너뛰기 - 기존 전사본 사용: {transcript_path}")
@@ -115,11 +226,9 @@ def run_pipeline(
             )
             engine = WhisperXEngine(config=config)
 
-            # Generate a unique meeting_id for this run
-            meeting_id = str(uuid.uuid4())
-
             # transcribe is async, so we need to run it with asyncio
             segments = asyncio.run(engine.transcribe(Path(audio_path), meeting_id))
+            raw_segments = segments  # 업로드용 저장
 
             # 전사본 저장
             transcript_path = out_dir / f"{base_name}_전사본.txt"
@@ -237,6 +346,51 @@ def run_pipeline(
         print(f"\n[3/3] DOCX 생성 건너뛰기")
 
     # ═══════════════════════════════════════════════════════════════════
+    # STEP 4: Supabase 업로드 (선택)
+    # ═══════════════════════════════════════════════════════════════════
+
+    if upload:
+        print(f"\n[4/4] Supabase 업로드 중...")
+        upload_start = time.time()
+
+        try:
+            # Transcript 객체 생성
+            transcript_obj = None
+            if raw_segments:
+                transcript_obj = segments_to_transcript(meeting_id, raw_segments)
+
+            # Summary dict 생성
+            summary_dict = None
+            if summary_result and summarizer:
+                summary_dict = summarizer.to_meeting_summary(
+                    summary_result,
+                    meeting_id=meeting_id
+                )
+
+            # 업로드 실행
+            success, result = asyncio.run(upload_to_supabase(
+                audio_path=audio_file,
+                transcript=transcript_obj,
+                summary_dict=summary_dict,
+                user_id=user_id,
+                title=title or base_name
+            ))
+
+            upload_duration = time.time() - upload_start
+            if success:
+                results['meeting_id'] = result
+                print(f"    ✓ 업로드 완료 ({upload_duration:.1f}초)")
+                print(f"    → Meeting ID: {result}")
+            else:
+                print(f"    ✗ 업로드 실패: {result}")
+
+        except Exception as e:
+            print(f"    ✗ 업로드 오류: {e}")
+    else:
+        if verbose:
+            print(f"\n[4/4] Supabase 업로드 건너뛰기 (--upload 옵션 없음)")
+
+    # ═══════════════════════════════════════════════════════════════════
     # 완료
     # ═══════════════════════════════════════════════════════════════════
 
@@ -276,6 +430,12 @@ def main():
 
   # 메타데이터 지정
   python meeting_pipeline.py ../data/회의.m4a --department "수의과대학" --location "교수회의실"
+
+  # Supabase에 업로드
+  python meeting_pipeline.py ../data/회의.m4a --upload
+
+  # 제목 지정하여 업로드
+  python meeting_pipeline.py ../data/회의.m4a --upload --meeting-title "주간회의"
         """
     )
 
@@ -310,6 +470,14 @@ def main():
     parser.add_argument('--attendees', help='참석자 (쉼표로 구분)')
     parser.add_argument('--absentees', help='불참자')
 
+    # Supabase 업로드 옵션
+    parser.add_argument('--upload', '-u', action='store_true',
+                        help='Supabase에 결과 업로드')
+    parser.add_argument('--user-id',
+                        help='Supabase user ID (기본: DEFAULT_USER_ID)')
+    parser.add_argument('--meeting-title',
+                        help='회의 제목 (기본: 파일명)')
+
     args = parser.parse_args()
 
     # 메타데이터 구성 (None이 아닌 값만 포함)
@@ -329,7 +497,11 @@ def main():
         verbose=not args.quiet,
         enable_diarization=not args.no_diarization,
         min_speakers=args.min_speakers,
-        max_speakers=args.max_speakers
+        max_speakers=args.max_speakers,
+        # Supabase 업로드 옵션
+        upload=args.upload,
+        user_id=args.user_id,
+        title=args.meeting_title
     )
 
     return 0 if results else 1
